@@ -1,0 +1,81 @@
+# watsonx Orchestrate Skill Definition
+# Cancellation Letter Generation Agent
+
+name: CancellationLetterAgent
+version: 1.0.0
+description: Generates formal cancellation letters for subscription services
+
+input_schema:
+  type: object
+  required:
+    - provider_name
+    - monthly_cost
+    - user_name
+  properties:
+    provider_name:
+      type: string
+      description: Name of the subscription service provider
+    monthly_cost:
+      type: number
+      description: Current monthly subscription cost
+    account_type:
+      type: string
+      enum: [personal, business]
+      default: personal
+      description: Type of account being cancelled
+    user_name:
+      type: string
+      description: Name of the account holder
+    account_number:
+      type: string
+      description: Optional account or customer ID
+    cancellation_reason:
+      type: string
+      description: Optional reason for cancellation
+
+output_schema:
+  type: object
+  properties:
+    letter_content:
+      type: string
+      description: Generated cancellation letter
+    confidence_score:
+      type: number
+      description: Confidence in letter quality (0-1)
+    provider_specific:
+      type: boolean
+      description: Whether provider-specific language was used
+
+model_config:
+  model_id: ibm/granite-13b-chat-v2
+  parameters:
+    temperature: 0.3
+    max_tokens: 800
+    top_p: 0.9
+    frequency_penalty: 0.0
+    presence_penalty: 0.0
+
+prompt_template: |
+  You are a professional consumer rights advocate helping users write formal cancellation letters.
+  
+  Generate a formal, professional cancellation letter for the following subscription:
+  
+  Provider: {{provider_name}}
+  Monthly Cost: ${{monthly_cost}}
+  Account Type: {{account_type}}
+  User Name: {{user_name}}
+  {{#if account_number}}Account Number: {{account_number}}{{/if}}
+  {{#if cancellation_reason}}Reason: {{cancellation_reason}}{{/if}}
+  
+  Requirements:
+  1. Use formal business letter format
+  2. Reference consumer protection rights where applicable
+  3. Request immediate cancellation with no further charges
+  4. Request written confirmation
+  5. Include a 30-day notice period if required by law
+  6. Be firm but professional in tone
+  7. Do not include placeholder fields - use the provided information
+  
+  Generate the complete cancellation letter now:
+
+# Made with Bob
