@@ -6,7 +6,11 @@ import path from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
-    react(),
+    react({
+      babel: {
+        plugins: [['@emotion/babel-plugin', { autoLabel: 'dev-only' }]],
+      },
+    }),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
@@ -14,8 +18,8 @@ export default defineConfig({
         name: 'SubLeech - Subscription Intelligence',
         short_name: 'SubLeech',
         description: 'AI-Powered Personal Subscription Intelligence & Financial Defense',
-        theme_color: '#0f62fe',
-        background_color: '#ffffff',
+        theme_color: '#ff4d3d',
+        background_color: '#fdf8f1',
         display: 'standalone',
         icons: [
           {
@@ -58,9 +62,9 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'carbon': ['@carbon/react', '@carbon/charts', '@carbon/charts-react'],
+          'ui-vendor': ['@emotion/react', '@emotion/styled', 'framer-motion'],
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'query': ['@tanstack/react-query']
+          query: ['@tanstack/react-query'],
         }
       }
     }

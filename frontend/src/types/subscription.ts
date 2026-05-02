@@ -13,6 +13,10 @@ export interface SubscriptionRow {
   monthly_cost: number
   health: SubscriptionHealth
   last_billed: string
+  /** From pattern detector when available. */
+  billing_cycle?: string
+  /** Latest detected increase (percent) when applicable. */
+  price_hike_percent?: number
 }
 
 /** One month of spend for Carbon LineChart tabular data. */

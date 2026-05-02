@@ -1,42 +1,23 @@
 /**
- * AIResponseEditor
- *
- * Editing flow:
- * 1. ``originalAiText`` seeds the read-only preview (left) and the editable buffer (right).
- * 2. User edits the textarea; ``draftText`` tracks live edits and drives character count,
- *    readability estimate, and diff vs. the AI baseline.
- * 3. ``versions`` records snapshots: the original generation plus each explicit "Save version"
- *    (here: debounced autosave on blur) so reviewers can compare AI vs. human tone.
- * 4. ``rating`` captures qualitative feedback for model improvement loops.
- * 5. Actions (copy / PDF / email) are side-effecting; email opens a Carbon Modal and defers
- *    transport to ``onSendEmail`` so orchestration can plug in watsonx / SMTP later.
+ * AIResponseEditor — side-by-side AI vs user letter, versions, email stub (no Carbon).
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
+import toast from 'react-hot-toast'
 import { jsPDF } from 'jspdf'
-import {
-  Button,
-  ButtonSet,
-  Column,
-  Grid,
-  InlineLoading,
-  Layer,
-  Modal,
-  Stack,
-  TextArea,
-  TextInput,
-  Tile,
-} from '@carbon/react'
-import { Star, StarFilled } from '@carbon/icons-react'
+
+import { NeoModal } from '@components/ui/NeoModal'
 
 export interface AIResponseEditorProps {
   subscriptionLabel: string
-  /** Initial watsonx / agent output (immutable baseline for version history). */
   originalAiText: string
-  /** When true, shows skeleton / inline loading over the preview pane. */
   isGenerating?: boolean
-  /** Optional integration hook for sending the edited letter. */
+  generationStatusText?: string
+  enableTypewriter?: boolean
+  defaultRecipientEmail?: string
   onSendEmail?: (payload: { to: string; subject: string; body: string }) => Promise<void> | void
+  /** Primary footer CTA label (cancellation vs negotiation copy). */
+  sentCtaLabel?: string
 }
 
 export interface TextVersion {
@@ -47,7 +28,6 @@ export interface TextVersion {
   source: 'ai' | 'user'
 }
 
-/** Rough syllable estimate for readability heuristics (English-oriented). */
 function estimateSyllables(word: string): number {
   const w = word.toLowerCase().replace(/[^a-z]/g, '')
   if (w.length <= 3) {
@@ -58,7 +38,6 @@ function estimateSyllables(word: string): number {
   return Math.max(1, count)
 }
 
-/** Returns a 0–100 style readability score (higher = easier), clamped for UI display. */
 function computeReadabilityScore(text: string): number {
   const clean = text.trim()
   if (!clean) {
@@ -69,7 +48,6 @@ function computeReadabilityScore(text: string): number {
   const syllables = words.reduce((acc, w) => acc + estimateSyllables(w), 0)
   const avgWordsPerSentence = words.length / sentences
   const avgSyllablesPerWord = syllables / Math.max(1, words.length)
-  // Flesch Reading Ease
   const raw = 206.835 - 1.015 * avgWordsPerSentence - 84.6 * avgSyllablesPerWord
   return Math.round(Math.max(0, Math.min(100, raw)))
 }
@@ -102,16 +80,10 @@ function classifyLine(line: string): LetterSegmentKind {
   return 'body'
 }
 
-/** Lightweight "syntax" coloring for formal letters using Carbon design tokens via CSS hooks. */
 function LetterPreview({ text }: { text: string }) {
   const lines = text.split('\n')
   return (
-    <div
-      className="ai-response-editor__preview"
-      role="document"
-      aria-label="AI generated letter preview"
-      aria-readonly="true"
-    >
+    <div className="ai-response-editor__preview" role="document" aria-label="AI generated letter preview" aria-readonly="true">
       {lines.map((line, idx) => {
         const kind = classifyLine(line)
         return (
@@ -128,9 +100,15 @@ export default function AIResponseEditor({
   subscriptionLabel,
   originalAiText,
   isGenerating = false,
+  generationStatusText,
+  enableTypewriter = true,
+  defaultRecipientEmail = '',
   onSendEmail,
+  sentCtaLabel = 'Mark as sent ✓',
 }: AIResponseEditorProps) {
   const [draftText, setDraftText] = useState(originalAiText)
+  const [typedPreview, setTypedPreview] = useState('')
+  const [compareIndex, setCompareIndex] = useState(0)
   const [versions, setVersions] = useState<TextVersion[]>([
     {
       id: 'v-ai',
@@ -161,6 +139,36 @@ export default function AIResponseEditor({
     setRating(null)
   }, [originalAiText])
 
+  useEffect(() => {
+    if (isGenerating) {
+      setTypedPreview('')
+      return
+    }
+    if (!enableTypewriter) {
+      setTypedPreview(originalAiText)
+      return
+    }
+    if (!originalAiText) {
+      setTypedPreview('')
+      return
+    }
+    let i = 0
+    const id = window.setInterval(() => {
+      i = Math.min(originalAiText.length, i + 3)
+      setTypedPreview(originalAiText.slice(0, i))
+      if (i >= originalAiText.length) {
+        window.clearInterval(id)
+      }
+    }, 14)
+    return () => window.clearInterval(id)
+  }, [isGenerating, originalAiText, enableTypewriter])
+
+  useEffect(() => {
+    if (defaultRecipientEmail) {
+      setEmailTo(defaultRecipientEmail)
+    }
+  }, [defaultRecipientEmail])
+
   const readability = useMemo(() => computeReadabilityScore(draftText), [draftText])
   const charCount = draftText.length
 
@@ -183,6 +191,7 @@ export default function AIResponseEditor({
 
   const handleCopy = useCallback(async () => {
     await navigator.clipboard.writeText(draftText)
+    toast.success('Copied')
   }, [draftText])
 
   const handleDownloadPdf = useCallback(() => {
@@ -204,6 +213,20 @@ export default function AIResponseEditor({
     doc.save(`${subscriptionLabel.replace(/\s+/g, '_')}_letter.pdf`)
   }, [draftText, subscriptionLabel])
 
+  const handleShare = useCallback(async () => {
+    if (typeof navigator === 'undefined' || !navigator.share) {
+      return
+    }
+    try {
+      await navigator.share({
+        title: `${subscriptionLabel} — letter draft`,
+        text: draftText,
+      })
+    } catch {
+      /* dismissed */
+    }
+  }, [draftText, subscriptionLabel])
+
   const handleSendEmail = useCallback(async () => {
     setEmailError(null)
     if (!emailTo.trim()) {
@@ -214,6 +237,7 @@ export default function AIResponseEditor({
     try {
       await onSendEmail?.({ to: emailTo.trim(), subject: emailSubject.trim(), body: draftText })
       setEmailOpen(false)
+      toast.success('Send queued (demo)')
     } catch (e) {
       setEmailError(e instanceof Error ? e.message : 'Unable to send email.')
     } finally {
@@ -221,124 +245,258 @@ export default function AIResponseEditor({
     }
   }, [draftText, emailSubject, emailTo, onSendEmail])
 
-  return (
-    <Stack gap={6}>
-      <Grid fullWidth>
-        <Column lg={8} md={4} sm={4}>
-          <Tile>
-            <Stack gap={4}>
-              <h3 className="cds--type-productive-heading-03">AI preview</h3>
-              <p className="cds--type-helper-text-01">Read-only structured view of the generated letter.</p>
-              <Layer level={1}>
-                {isGenerating ? (
-                  <InlineLoading status="active" description="Generating response…" />
-                ) : (
-                  <LetterPreview text={originalAiText} />
-                )}
-              </Layer>
-            </Stack>
-          </Tile>
-        </Column>
-        <Column lg={8} md={4} sm={4}>
-          <Tile>
-            <Stack gap={4}>
-              <TextArea
-                labelText="Editable response"
-                helperText="Changes here are tracked against the AI baseline for audit and quality review."
-                id="ai-response-editor-textarea"
-                rows={18}
-                value={draftText}
-                onChange={(e) => setDraftText(e.target.value)}
-                onBlur={recordVersionIfChanged}
-                aria-describedby="ai-response-editor-metrics"
-              />
-              <p id="ai-response-editor-metrics" className="cds--type-caption-01">
-                {charCount} characters · Readability score (Flesch-style): {readability}
-              </p>
-            </Stack>
-          </Tile>
-        </Column>
-      </Grid>
+  const tileBase: CSSProperties = {
+    borderRadius: 16,
+    border: '2px solid var(--sl-line)',
+    padding: '1.1rem 1.15rem',
+    boxShadow: 'var(--sl-shadow-sm)',
+    background: 'var(--sl-surface-3)',
+  }
 
-      <Tile>
-        <Stack gap={5}>
-          <div role="radiogroup" aria-label="Rate AI response quality from one to five stars">
-            <p className="cds--type-body-compact-01" id="ai-rating-label">
-              How helpful was this draft?
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div className="sl-switcher" role="tablist" aria-label="Compare mode">
+        <button type="button" role="tab" aria-selected={compareIndex === 0} data-on={compareIndex === 0} onClick={() => setCompareIndex(0)}>
+          Side-by-side
+        </button>
+        <button type="button" role="tab" aria-selected={compareIndex === 1} data-on={compareIndex === 1} onClick={() => setCompareIndex(1)}>
+          Compare (diff)
+        </button>
+      </div>
+
+      {compareIndex === 0 ? (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '1rem',
+            alignItems: 'stretch',
+          }}
+        >
+          <div style={tileBase}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+              <span
+                style={{
+                  fontSize: '0.65rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.04em',
+                  padding: '0.2rem 0.5rem',
+                  borderRadius: 999,
+                  border: '2px solid var(--sl-line)',
+                  background: '#e9d5ff',
+                }}
+              >
+                🤖 AI generated
+              </span>
+              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--sl-muted)' }}>What we suggest</span>
+            </div>
+            {isGenerating ? (
+              <p style={{ margin: 0, fontWeight: 700, color: 'var(--sl-muted)' }}>{generationStatusText ?? 'Generating…'}</p>
+            ) : (
+              <LetterPreview text={typedPreview || '\u00a0'} />
+            )}
+          </div>
+          <div style={{ ...tileBase, background: 'var(--sl-surface)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+              <span
+                style={{
+                  fontSize: '0.65rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.04em',
+                  padding: '0.2rem 0.5rem',
+                  borderRadius: 999,
+                  border: '2px solid var(--sl-line)',
+                  background: '#99f6e4',
+                }}
+              >
+                ✏️ Your version
+              </span>
+              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--sl-muted)' }}>Make it yours</span>
+            </div>
+            <label htmlFor="ai-response-editor-textarea" className="sl-sr-only">
+              Your letter
+            </label>
+            <textarea
+              id="ai-response-editor-textarea"
+              className="sl-textarea"
+              rows={16}
+              value={draftText}
+              onChange={(e) => setDraftText(e.target.value)}
+              onBlur={recordVersionIfChanged}
+              aria-describedby="ai-response-editor-metrics"
+            />
+            <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: 'var(--sl-muted)', fontWeight: 600 }}>
+              💡 Tip: Most companies respond within 24–48 hours.
             </p>
-            <ButtonSet aria-labelledby="ai-rating-label">
+            <p id="ai-response-editor-metrics" style={{ margin: '0.35rem 0 0', fontSize: '0.75rem', color: 'var(--sl-muted)' }}>
+              {charCount} characters · Readability: {readability}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
+          <div style={tileBase}>
+            <h3 style={{ margin: '0 0 0.5rem', fontFamily: 'var(--sl-font-serif)' }}>AI original</h3>
+            <pre className="ai-response-editor__diff-block" aria-label="Original AI text">
+              {originalAiText}
+            </pre>
+          </div>
+          <div style={tileBase}>
+            <h3 style={{ margin: '0 0 0.5rem', fontFamily: 'var(--sl-font-serif)' }}>Your edits</h3>
+            <pre className="ai-response-editor__diff-block" aria-label="Edited text">
+              {draftText}
+            </pre>
+          </div>
+        </div>
+      )}
+
+      {compareIndex === 1 ? (
+        <div style={tileBase}>
+          <label htmlFor="ai-response-editor-textarea-diff" style={{ fontWeight: 800, display: 'block', marginBottom: '0.35rem' }}>
+            Editable response
+          </label>
+          <textarea
+            id="ai-response-editor-textarea-diff"
+            className="sl-textarea"
+            rows={12}
+            value={draftText}
+            onChange={(e) => setDraftText(e.target.value)}
+            onBlur={recordVersionIfChanged}
+            aria-describedby="ai-response-editor-metrics-diff"
+          />
+          <p id="ai-response-editor-metrics-diff" style={{ margin: '0.35rem 0 0', fontSize: '0.75rem', color: 'var(--sl-muted)' }}>
+            {charCount} characters · Readability: {readability}
+          </p>
+          <p style={{ margin: '0.35rem 0 0', fontSize: '0.75rem', color: 'var(--sl-muted)' }}>
+            Edit below; the compare view above updates as you type.
+          </p>
+        </div>
+      ) : null}
+
+      <div style={{ ...tileBase, background: 'var(--sl-surface)' }}>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+          }}
+        >
+          <div role="radiogroup" aria-label="Rate letter quality from one to five stars">
+            <p id="ai-rating-label" style={{ margin: '0 0 0.35rem', fontWeight: 800, fontSize: '0.875rem' }}>
+              How was this letter?
+            </p>
+            <div style={{ display: 'flex', gap: '0.15rem' }} aria-labelledby="ai-rating-label">
               {[1, 2, 3, 4, 5].map((value) => (
-                <Button
+                <button
                   key={value}
-                  kind="ghost"
-                  size="md"
-                  hasIconOnly
+                  type="button"
                   role="radio"
                   aria-checked={rating === value}
-                  renderIcon={value <= (rating ?? 0) ? StarFilled : Star}
-                  iconDescription={`${value} out of 5 stars`}
                   aria-label={`${value} out of five stars`}
                   onClick={() => setRating(value)}
-                />
+                  style={{
+                    border: '2px solid var(--sl-line)',
+                    borderRadius: 8,
+                    width: 40,
+                    height: 40,
+                    background: 'var(--sl-surface)',
+                    cursor: 'pointer',
+                    fontSize: '1.15rem',
+                    lineHeight: 1,
+                  }}
+                >
+                  {value <= (rating ?? 0) ? '★' : '☆'}
+                </button>
               ))}
-            </ButtonSet>
+            </div>
           </div>
+          <button type="button" className="sl-btn sl-btn--yellow" onClick={() => toast.success('Saved (demo)')}>
+            {sentCtaLabel}
+          </button>
+        </div>
 
-          <div>
-            <p className="cds--type-productive-heading-01">Version history</p>
-            <ol className="ai-response-editor__versions" aria-label="Saved versions newest last">
-              {versions.map((v) => (
-                <li key={v.id}>
-                  <button
-                    type="button"
-                    className="cds--type-body-compact-01 ai-response-editor__version-link"
-                    onClick={() => setDraftText(v.text)}
-                    aria-label={`Load version ${v.label} from ${v.savedAt}`}
-                  >
-                    <strong>{v.label}</strong> ({v.source}) — {new Date(v.savedAt).toLocaleString()}
-                  </button>
-                </li>
-              ))}
-            </ol>
-          </div>
+        <div style={{ marginTop: '1.25rem' }}>
+          <p style={{ margin: '0 0 0.35rem', fontWeight: 800, fontSize: '0.75rem', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            Version history
+          </p>
+          <ol className="ai-response-editor__versions" aria-label="Saved versions newest last">
+            {versions.map((v) => (
+              <li key={v.id}>
+                <button
+                  type="button"
+                  className="ai-response-editor__version-link"
+                  onClick={() => setDraftText(v.text)}
+                  aria-label={`Load version ${v.label} from ${v.savedAt}`}
+                >
+                  <strong>{v.label}</strong> ({v.source}) — {new Date(v.savedAt).toLocaleString()}
+                </button>
+              </li>
+            ))}
+          </ol>
+        </div>
 
-          <ButtonSet>
-            <Button kind="secondary" onClick={handleCopy} aria-label="Copy edited letter to clipboard">
-              Copy to clipboard
-            </Button>
-            <Button kind="secondary" onClick={handleDownloadPdf} aria-label="Download letter as PDF file">
-              Download as PDF
-            </Button>
-            <Button kind="primary" onClick={() => setEmailOpen(true)} aria-label="Open send email dialog">
-              Send via email
-            </Button>
-          </ButtonSet>
-        </Stack>
-      </Tile>
+        <div className="sl-btn-row" style={{ marginTop: '1rem' }}>
+          <button type="button" className="sl-btn sl-btn--ghost" onClick={handleCopy}>
+            Copy
+          </button>
+          <button type="button" className="sl-btn sl-btn--black" onClick={() => setEmailOpen(true)}>
+            Email
+          </button>
+          <button type="button" className="sl-btn sl-btn--ghost" onClick={handleDownloadPdf}>
+            PDF
+          </button>
+          {typeof navigator !== 'undefined' && typeof navigator.share === 'function' ? (
+            <button type="button" className="sl-btn sl-btn--ghost" onClick={() => void handleShare()}>
+              Share
+            </button>
+          ) : null}
+        </div>
+      </div>
 
-      <Modal
+      <NeoModal
         open={emailOpen}
-        modalHeading="Send letter"
-        primaryButtonText={emailSending ? 'Sending…' : 'Send'}
-        secondaryButtonText="Cancel"
-        primaryButtonDisabled={emailSending}
-        onRequestClose={() => !emailSending && setEmailOpen(false)}
-        onRequestSubmit={handleSendEmail}
-        aria-label="Send edited AI response by email"
+        title="Send letter"
+        onClose={() => !emailSending && setEmailOpen(false)}
+        footer={
+          <div className="sl-btn-row" style={{ marginTop: '1.25rem', justifyContent: 'flex-end', width: '100%' }}>
+            <button type="button" className="sl-btn sl-btn--ghost" disabled={emailSending} onClick={() => setEmailOpen(false)}>
+              Cancel
+            </button>
+            <button type="button" className="sl-btn sl-btn--black" disabled={emailSending} onClick={() => void handleSendEmail()}>
+              {emailSending ? 'Sending…' : 'Send'}
+            </button>
+          </div>
+        }
       >
-        <Stack gap={5}>
-          {emailError ? <p role="alert">{emailError}</p> : null}
-          <TextInput
-            id="email-to"
-            labelText="Recipient"
-            type="email"
-            value={emailTo}
-            onChange={(e) => setEmailTo(e.target.value)}
-          />
-          <TextInput id="email-subject" labelText="Subject" value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} />
-          <p className="cds--type-helper-text-01">Email delivery uses your integration hook (onSendEmail).</p>
-        </Stack>
-      </Modal>
-    </Stack>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {emailError ? (
+            <p role="alert" style={{ margin: 0, fontWeight: 700, color: 'var(--sl-coral)' }}>
+              {emailError}
+            </p>
+          ) : null}
+          <div>
+            <label htmlFor="email-to" style={{ display: 'block', fontWeight: 800, fontSize: '0.75rem', marginBottom: '0.25rem' }}>
+              Recipient
+            </label>
+            <input
+              id="email-to"
+              className="sl-input"
+              type="email"
+              value={emailTo}
+              onChange={(e) => setEmailTo(e.target.value)}
+            />
+          </div>
+          <div>
+            <label htmlFor="email-subject" style={{ display: 'block', fontWeight: 800, fontSize: '0.75rem', marginBottom: '0.25rem' }}>
+              Subject
+            </label>
+            <input id="email-subject" className="sl-input" value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} />
+          </div>
+          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--sl-muted)' }}>Delivery uses your integration hook (onSendEmail).</p>
+        </div>
+      </NeoModal>
+    </div>
   )
 }
