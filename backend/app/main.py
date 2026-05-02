@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 import logging
 
 from app.core.config import settings
+from app.core.database import ping_database
 from app.routers import ingest, subscriptions, agents
 
 # Configure logging
@@ -60,10 +61,11 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint for monitoring"""
+    db_ok = ping_database()
     return {
-        "status": "healthy",
-        "database": "connected",  # TODO: Add actual DB health check
-        "redis": "connected",     # TODO: Add actual Redis health check
+        "status": "healthy" if db_ok else "degraded",
+        "database": "connected" if db_ok else "unavailable",
+        "redis": "unknown",  # TODO: ping Redis when broker is wired
     }
 
 

@@ -5,6 +5,7 @@ import { Theme } from '@carbon/react'
 
 // Pages
 import Dashboard from '@pages/Dashboard'
+import SubscriptionDashboard from '@pages/SubscriptionDashboard'
 import Upload from '@pages/Upload'
 import Reports from '@pages/Reports'
 import AIEditor from '@pages/AIEditor'
@@ -30,7 +31,8 @@ function App() {
         <Router>
           <div className="app">
             <Routes>
-              <Route path="/" element={<Dashboard />} />
+              <Route path="/" element={<SubscriptionDashboard />} />
+              <Route path="/legacy" element={<Dashboard />} />
               <Route path="/upload" element={<Upload />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/ai-editor/:subscriptionId" element={<AIEditor />} />
