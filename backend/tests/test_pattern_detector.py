@@ -3,8 +3,11 @@ import pandas as pd
 import pytest
 from app.services.pattern_detector import Frequency, SubscriptionPatternDetector, SubscriptionStatus
 
-def make_df(merchant, amount, start, count, gap_days, amounts_override=None):
+TODAY = date.today()
+
+def make_df(merchant, amount, count, gap_days, amounts_override=None):
     rows = []
+    start = TODAY - timedelta(days=gap_days * (count - 1))
     for i in range(count):
         rows.append({
             "date": str(start + timedelta(days=i * gap_days)),
@@ -19,7 +22,7 @@ def detector():
     return SubscriptionPatternDetector()
 
 def test_monthly_subscription_detected(detector):
-    df = make_df("Netflix", 1100.0, date(2024, 1, 15), count=6, gap_days=30)
+    df = make_df("Netflix", 1100.0, count=6, gap_days=30)
     results = detector.detect(df)
     assert len(results) == 1
     assert results[0].frequency == Frequency.MONTHLY
@@ -27,17 +30,17 @@ def test_monthly_subscription_detected(detector):
 
 def test_irregular_merchant_not_flagged(detector):
     rows = [
-        {"date": "2024-01-03", "merchant_name": "Naivas Supermarket", "amount": 3200.0, "transaction_id": "T1"},
-        {"date": "2024-01-17", "merchant_name": "Naivas Supermarket", "amount": 1500.0, "transaction_id": "T2"},
-        {"date": "2024-02-08", "merchant_name": "Naivas Supermarket", "amount": 4100.0, "transaction_id": "T3"},
-        {"date": "2024-03-25", "merchant_name": "Naivas Supermarket", "amount": 870.0, "transaction_id": "T4"},
+        {"date": str(TODAY - timedelta(days=90)), "merchant_name": "Naivas Supermarket", "amount": 3200.0, "transaction_id": "T1"},
+        {"date": str(TODAY - timedelta(days=74)), "merchant_name": "Naivas Supermarket", "amount": 1500.0, "transaction_id": "T2"},
+        {"date": str(TODAY - timedelta(days=51)), "merchant_name": "Naivas Supermarket", "amount": 4100.0, "transaction_id": "T3"},
+        {"date": str(TODAY - timedelta(days=14)), "merchant_name": "Naivas Supermarket", "amount": 870.0, "transaction_id": "T4"},
     ]
     results = detector.detect(pd.DataFrame(rows))
     assert all("Naivas" not in s.merchant_canonical for s in results)
 
 def test_price_increase_flagged(detector):
     amounts = [299.0, 299.0, 299.0, 299.0, 399.0]
-    df = make_df("Spotify", 299.0, date(2024, 1, 10), count=5, gap_days=30, amounts_override=amounts)
+    df = make_df("Spotify", 299.0, count=5, gap_days=30, amounts_override=amounts)
     results = detector.detect(df)
     sub = next((s for s in results if "Spotify" in s.merchant_canonical), None)
     assert sub is not None
@@ -45,7 +48,7 @@ def test_price_increase_flagged(detector):
     assert sub.status == SubscriptionStatus.CRITICAL
 
 def test_annual_subscription_detected(detector):
-    df = make_df("iCloud", 1200.0, date(2022, 3, 1), count=3, gap_days=365)
+    df = make_df("iCloud", 1200.0, count=3, gap_days=365)
     results = detector.detect(df)
     sub = next((s for s in results if "iCloud" in s.merchant_canonical), None)
     assert sub is not None
