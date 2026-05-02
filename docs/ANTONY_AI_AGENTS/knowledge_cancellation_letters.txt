@@ -1,0 +1,291 @@
+SUBSCRIPTION CANCELLATION LETTER KNOWLEDGE BASE
+===============================================
+
+DOCUMENT PURPOSE
+This knowledge base provides comprehensive guidance for generating professional subscription cancellation letters with consumer rights language and proper business formatting.
+
+===============================================
+SECTION 1: LETTER FORMAT REQUIREMENTS
+===============================================
+
+1.1 STANDARD BUSINESS LETTER FORMAT
+- Date at top (current date, format: Month Day, Year)
+- Provider's customer service address
+- Subject line clearly stating purpose
+- Professional salutation
+- Body paragraphs (3-4 paragraphs recommended)
+- Professional closing
+- Signature line with user's name
+
+1.2 REQUIRED COMPONENTS
+- Clear statement of cancellation intent in first paragraph
+- Account identification information
+- Effective date of cancellation
+- Request for written confirmation
+- Consumer rights references
+- Contact information for follow-up
+
+===============================================
+SECTION 2: CONSUMER RIGHTS LANGUAGE
+===============================================
+
+2.1 GENERAL CONSUMER PROTECTION RIGHTS
+- Right to cancel subscription services at any time
+- Right to receive written confirmation of cancellation
+- Right to refund of charges made after cancellation date
+- Protection under Federal Trade Commission (FTC) regulations
+- State-specific consumer protection laws
+
+2.2 KEY PHRASES TO INCLUDE
+- "I am exercising my right to cancel under consumer protection laws"
+- "I request immediate cessation of all charges to my account"
+- "Any charges made after this cancellation date should be refunded"
+- "I request written confirmation of this cancellation within 30 days"
+- "Under the terms of service and applicable consumer protection regulations"
+
+2.3 NOTICE PERIODS
+- Most services: Immediate cancellation available
+- Some contracts: 30-day notice period required
+- Annual contracts: May require notice before renewal date
+- Always reference the provider's terms of service
+
+===============================================
+SECTION 3: PROVIDER-SPECIFIC INFORMATION
+===============================================
+
+3.1 STREAMING SERVICES
+Netflix:
+- Address: 100 Winchester Circle, Los Gatos, CA 95032
+- Cancellation: Immediate, no notice period required
+- Billing: Prorated refunds not typically offered
+
+Spotify:
+- Address: 150 Greenwich Street, Floor 62, New York, NY 10007
+- Cancellation: Immediate, service continues until end of billing period
+- Billing: No refunds for partial months
+
+Disney+:
+- Address: 500 South Buena Vista Street, Burbank, CA 91521
+- Cancellation: Immediate, access until end of billing period
+- Billing: No prorated refunds
+
+Hulu:
+- Address: 2500 Broadway, Santa Monica, CA 90404
+- Cancellation: Immediate, no notice required
+- Billing: No refunds for current billing period
+
+3.2 SOFTWARE SUBSCRIPTIONS
+Adobe Creative Cloud:
+- Address: 345 Park Avenue, San Jose, CA 95110
+- Cancellation: May require 30-day notice for annual plans
+- Billing: Early termination fees may apply to annual plans
+
+Microsoft 365:
+- Address: One Microsoft Way, Redmond, WA 98052
+- Cancellation: Immediate for monthly plans
+- Billing: Prorated refunds for annual plans in some cases
+
+3.3 FITNESS & WELLNESS
+Peloton:
+- Address: 125 West 25th Street, New York, NY 10001
+- Cancellation: 30-day notice recommended
+- Billing: No refunds for current month
+
+Planet Fitness:
+- Address: 4 Liberty Lane West, Hampton, NH 03842
+- Cancellation: Written notice required, varies by location
+- Billing: May require in-person cancellation
+
+===============================================
+SECTION 4: TONE AND LANGUAGE GUIDELINES
+===============================================
+
+4.1 PROFESSIONAL TONE
+- Firm but respectful
+- Clear and direct
+- Avoid emotional language
+- State facts and requests clearly
+- Maintain business formality throughout
+
+4.2 PHRASES TO USE
+Opening:
+- "I am writing to formally request..."
+- "This letter serves as official notice..."
+- "I hereby request immediate cancellation..."
+
+Body:
+- "I have been a subscriber since..."
+- "Under consumer protection laws..."
+- "I request that no further charges..."
+- "Please confirm in writing..."
+
+Closing:
+- "Thank you for your prompt attention to this matter"
+- "I appreciate your cooperation"
+- "Please process this request immediately"
+
+4.3 PHRASES TO AVOID
+- Apologetic language ("I'm sorry to cancel")
+- Uncertain language ("I think I want to cancel")
+- Emotional appeals ("This makes me so upset")
+- Threats ("I'll report you if...")
+- Informal language ("Hey guys, cancel my stuff")
+
+===============================================
+SECTION 5: SPECIAL SITUATIONS
+===============================================
+
+5.1 PRICE INCREASES
+When canceling due to price increase:
+- Reference the specific price change
+- Mention original price and new price
+- State that increase is unacceptable
+- Reference right to cancel due to material change in terms
+
+Example language:
+"I am canceling due to the recent price increase from $[original] to $[new], which represents a [X]% increase. Under consumer protection laws, I have the right to cancel when there is a material change to the terms of service."
+
+5.2 SERVICE QUALITY ISSUES
+When canceling due to service problems:
+- Briefly mention the issue (optional)
+- Focus on cancellation request, not complaints
+- Do not make this the primary reason in the letter
+- Keep it factual and brief
+
+5.3 BUSINESS ACCOUNTS
+Additional requirements for business accounts:
+- Include business name and tax ID if applicable
+- Reference business account number
+- May require authorized signatory
+- Request confirmation to business address
+
+===============================================
+SECTION 6: FOLLOW-UP PROCEDURES
+===============================================
+
+6.1 CONFIRMATION REQUIREMENTS
+- Request written confirmation via email or mail
+- Specify preferred method of confirmation
+- Request confirmation within specific timeframe (typically 30 days)
+- Ask for confirmation number or reference number
+
+6.2 DOCUMENTATION
+Recommend users keep:
+- Copy of cancellation letter
+- Proof of delivery (certified mail receipt, email confirmation)
+- Any response from provider
+- Final billing statement showing $0 balance
+
+6.3 IF CHARGES CONTINUE
+Steps to take if charges continue after cancellation:
+- Contact provider immediately with cancellation proof
+- Dispute charges with credit card company
+- File complaint with FTC or state consumer protection office
+- Document all communications
+
+===============================================
+SECTION 7: LEGAL CONSIDERATIONS
+===============================================
+
+7.1 FEDERAL REGULATIONS
+- FTC Negative Option Rule
+- Electronic Signatures in Global and National Commerce Act (ESIGN)
+- Fair Credit Billing Act (for disputing charges)
+
+7.2 STATE-SPECIFIC LAWS
+Some states have additional protections:
+- California: Automatic renewal laws
+- New York: Clear disclosure requirements
+- Illinois: Easy cancellation requirements
+
+7.3 CONTRACT TERMS
+- Review terms of service for cancellation procedures
+- Note any early termination fees
+- Understand notice period requirements
+- Check for automatic renewal clauses
+
+===============================================
+SECTION 8: EXAMPLE TEMPLATES
+===============================================
+
+8.1 BASIC CANCELLATION LETTER TEMPLATE
+
+[Current Date]
+
+[Provider Name] Customer Service
+[Provider Address]
+
+Subject: Cancellation of Subscription - [User Name]
+
+Dear [Provider Name] Customer Service Team,
+
+I am writing to formally request the immediate cancellation of my [Provider Name] subscription, currently billed at $[Amount] per month. I have been a subscriber since [approximate date if known], and I am exercising my right to cancel under consumer protection laws.
+
+Under the terms of service and applicable consumer protection regulations, I request that:
+1. My subscription be cancelled immediately
+2. No further charges be applied to my account after [current date]
+3. Any charges made after this cancellation date be refunded
+4. Written confirmation of this cancellation be provided
+
+I request written confirmation of this cancellation within 30 days, along with confirmation that no further charges will be applied to my account.
+
+Thank you for your prompt attention to this matter.
+
+Sincerely,
+[User Name]
+
+8.2 CANCELLATION DUE TO PRICE INCREASE
+
+[Current Date]
+
+[Provider Name] Customer Service
+[Provider Address]
+
+Subject: Cancellation of Subscription Due to Price Increase - [User Name]
+
+Dear [Provider Name] Customer Service Team,
+
+I am writing to formally request the immediate cancellation of my [Provider Name] subscription. I have been a loyal subscriber for [duration], but the recent price increase from $[original] to $[new] (a [X]% increase) is not acceptable to me.
+
+Under consumer protection laws, I have the right to cancel when there is a material change to the terms of service. I am exercising that right and request immediate cancellation with no further charges to my account.
+
+I request written confirmation of this cancellation and confirmation that no charges will be applied after [current date].
+
+Thank you for your attention to this matter.
+
+Sincerely,
+[User Name]
+
+===============================================
+SECTION 9: QUALITY CHECKLIST
+===============================================
+
+Every cancellation letter should include:
+☑ Current date
+☑ Provider's customer service address
+☑ Clear subject line
+☑ Professional salutation
+☑ Statement of cancellation intent in first paragraph
+☑ Account identification (name, account number if available)
+☑ Reference to consumer protection rights
+☑ Request for immediate cessation of charges
+☑ Request for written confirmation
+☑ Professional closing
+☑ User's name
+
+Letters should NOT include:
+☒ Placeholder text like [INSERT HERE]
+☒ Apologetic or uncertain language
+☒ Emotional appeals or complaints
+☒ Threats or aggressive language
+☒ Informal or casual tone
+
+===============================================
+END OF KNOWLEDGE BASE
+===============================================
+
+This knowledge base should be used to generate professional, legally sound cancellation letters that protect consumer rights while maintaining a professional tone.
+
+Last Updated: May 2, 2026
+Version: 1.0
+Created for: SubLeech - Subscription Intelligence System
