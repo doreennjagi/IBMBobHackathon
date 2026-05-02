@@ -1,0 +1,87 @@
+# watsonx Orchestrate Skill Definition
+# Negotiation Script Generation Agent
+
+name: NegotiationScriptAgent
+version: 1.0.0
+description: Generates hardship negotiation scripts for subscription retention calls
+
+input_schema:
+  type: object
+  required:
+    - provider_name
+    - monthly_cost
+  properties:
+    provider_name:
+      type: string
+      description: Name of the subscription service provider
+    monthly_cost:
+      type: number
+      description: Current monthly subscription cost
+    subscription_duration_months:
+      type: integer
+      description: How long the user has been subscribed
+    competitor_pricing:
+      type: number
+      description: Optional competitor pricing for leverage
+    hardship_type:
+      type: string
+      enum: [financial, temporary, price_increase, feature_reduction]
+      default: financial
+      description: Type of hardship to emphasize
+
+output_schema:
+  type: object
+  properties:
+    script_content:
+      type: string
+      description: Generated negotiation script
+    confidence_score:
+      type: number
+      description: Confidence in script effectiveness (0-1)
+    expected_discount_range:
+      type: string
+      description: Expected discount percentage range
+
+model_config:
+  model_id: ibm/granite-13b-chat-v2
+  parameters:
+    temperature: 0.4
+    max_tokens: 1000
+    top_p: 0.9
+    frequency_penalty: 0.1
+    presence_penalty: 0.1
+
+prompt_template: |
+  You are an expert negotiation coach helping users get better subscription rates.
+  
+  Create a negotiation script for the following scenario:
+  
+  Provider: {{provider_name}}
+  Current Monthly Cost: ${{monthly_cost}}
+  {{#if subscription_duration_months}}Subscription Duration: {{subscription_duration_months}} months{{/if}}
+  {{#if competitor_pricing}}Competitor Price: ${{competitor_pricing}}{{/if}}
+  Hardship Type: {{hardship_type}}
+  
+  Create a structured negotiation script with:
+  
+  1. OPENING: Friendly introduction emphasizing loyalty
+  2. SITUATION: Brief explanation of hardship without over-explaining
+  3. REQUEST: Specific discount request (20-30% is reasonable)
+  4. LEVERAGE: Mention competitor pricing or length of subscription
+  5. FALLBACK OPTIONS: 
+     - Temporary discount
+     - Pause subscription
+     - Downgrade to lower tier
+  6. RETENTION OFFER RESPONSE: How to respond if they offer a discount
+  7. CLOSING: Professional thank you regardless of outcome
+  
+  Make the script:
+  - Conversational but professional
+  - Confident but not aggressive
+  - Specific with numbers
+  - Empathetic to the retention agent
+  - Ready to use in a phone call
+  
+  Generate the complete negotiation script now:
+
+# Made with Bob
