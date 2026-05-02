@@ -1,1 +1,1 @@
-# agentx5-subscription-killer-
+# agentx5-subscription-killer
