@@ -1,228 +1,60 @@
-"""
-Merchant Fingerprinting Service
+from dataclasses import dataclass
 
-Normalizes merchant names and maps payment references to known
-subscription service providers using fuzzy matching and alias databases.
-"""
+MERCHANT_DATABASE = {
+    "netflix": {"canonical": "Netflix", "category": "Streaming", "known": True},
+    "nflx": {"canonical": "Netflix", "category": "Streaming", "known": True},
+    "spotify": {"canonical": "Spotify", "category": "Music", "known": True},
+    "showmax": {"canonical": "Showmax", "category": "Streaming", "known": True},
+    "dstv": {"canonical": "DStv", "category": "Streaming", "known": True},
+    "youtube premium": {"canonical": "YouTube Premium", "category": "Streaming", "known": True},
+    "apple icloud": {"canonical": "iCloud", "category": "Cloud Storage", "known": True},
+    "icloud": {"canonical": "iCloud", "category": "Cloud Storage", "known": True},
+    "google one": {"canonical": "Google One", "category": "Cloud Storage", "known": True},
+    "dropbox": {"canonical": "Dropbox", "category": "Cloud Storage", "known": True},
+    "adobe": {"canonical": "Adobe Creative Cloud", "category": "Software", "known": True},
+    "microsoft 365": {"canonical": "Microsoft 365", "category": "Software", "known": True},
+    "notion": {"canonical": "Notion", "category": "Productivity", "known": True},
+    "canva": {"canonical": "Canva", "category": "Design", "known": True},
+    "safaricom": {"canonical": "Safaricom", "category": "Telecom", "known": True},
+    "m-pesa": {"canonical": "M-Pesa", "category": "Mobile Money", "known": True},
+    "zuku": {"canonical": "Zuku", "category": "Internet/TV", "known": True},
+    "airtel": {"canonical": "Airtel", "category": "Telecom", "known": True},
+}
 
-import pandas as pd
-from typing import Dict, List, Optional
-import re
-import logging
-
-logger = logging.getLogger(__name__)
-
+@dataclass
+class MerchantMatch:
+    raw_name: str
+    canonical_name: str
+    category: str
+    known_provider: bool
+    match_score: float
 
 class MerchantFingerprintService:
-    """
-    Service for normalizing merchant names and identifying subscription providers.
-    
-    Uses a combination of exact matching, fuzzy matching, and known alias mapping
-    to standardize merchant names across different bank statement formats.
-    """
-    
     def __init__(self):
-        self.merchant_database = self._load_merchant_database()
-        
-    def _load_merchant_database(self) -> Dict[str, Dict]:
-        """
-        Load known subscription providers and their aliases.
-        
-        In production, this would be loaded from a database or JSON file.
-        """
-        
-        return {
-            # Streaming Services
-            "netflix": {
-                "canonical_name": "Netflix",
-                "category": "streaming",
-                "aliases": ["netflix.com", "netflix inc", "nflx", "netflix subscription"],
-                "typical_amounts": [9.99, 13.99, 15.99, 19.99]
-            },
-            "spotify": {
-                "canonical_name": "Spotify",
-                "category": "music",
-                "aliases": ["spotify.com", "spotify ab", "spotify premium", "spotify subscription"],
-                "typical_amounts": [9.99, 14.99]
-            },
-            "amazon_prime": {
-                "canonical_name": "Amazon Prime",
-                "category": "shopping",
-                "aliases": ["amazon prime", "amzn prime", "prime video", "amazon.com"],
-                "typical_amounts": [12.99, 14.99]
-            },
-            "apple_music": {
-                "canonical_name": "Apple Music",
-                "category": "music",
-                "aliases": ["apple.com/bill", "apple music", "itunes", "apple subscription"],
-                "typical_amounts": [9.99, 14.99]
-            },
-            "icloud": {
-                "canonical_name": "iCloud Storage",
-                "category": "cloud_storage",
-                "aliases": ["icloud", "apple icloud", "icloud storage"],
-                "typical_amounts": [0.99, 2.99, 9.99]
-            },
-            "adobe": {
-                "canonical_name": "Adobe Creative Cloud",
-                "category": "software",
-                "aliases": ["adobe", "adobe creative", "adobe cc", "adobe systems"],
-                "typical_amounts": [9.99, 20.99, 52.99]
-            },
-            "microsoft_365": {
-                "canonical_name": "Microsoft 365",
-                "category": "software",
-                "aliases": ["microsoft 365", "office 365", "msft", "microsoft subscription"],
-                "typical_amounts": [6.99, 9.99, 12.99]
-            },
-            "youtube_premium": {
-                "canonical_name": "YouTube Premium",
-                "category": "streaming",
-                "aliases": ["youtube premium", "youtube music", "google youtube"],
-                "typical_amounts": [11.99, 17.99]
-            },
-            "showmax": {
-                "canonical_name": "Showmax",
-                "category": "streaming",
-                "aliases": ["showmax", "showmax subscription"],
-                "typical_amounts": [7.99, 12.99]
-            },
-            "dstv": {
-                "canonical_name": "DStv",
-                "category": "tv",
-                "aliases": ["dstv", "multichoice", "dstv subscription"],
-                "typical_amounts": [15.00, 30.00, 50.00, 80.00]
-            },
-            # Add more providers as needed
-        }
-    
-    def normalize_transactions(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Normalize merchant names in transaction DataFrame.
-        
-        Args:
-            df: DataFrame with merchant/description column
-            
-        Returns:
-            DataFrame with normalized merchant names
-        """
-        
-        if 'merchant' not in df.columns:
-            logger.warning("No merchant column found in DataFrame")
-            return df
-        
-        # Apply normalization to each merchant name
-        df['merchant_normalized'] = df['merchant'].apply(self._normalize_merchant_name)
-        
-        # Use normalized name as primary merchant field
-        df['merchant'] = df['merchant_normalized']
-        
-        return df
-    
-    def _normalize_merchant_name(self, raw_name: str) -> str:
-        """
-        Normalize a single merchant name.
-        
-        Steps:
-        1. Clean and standardize format
-        2. Check against known providers
-        3. Return canonical name or cleaned version
-        """
-        
-        if pd.isna(raw_name):
-            return "Unknown"
-        
-        # Convert to lowercase and remove extra whitespace
-        cleaned = str(raw_name).lower().strip()
-        cleaned = re.sub(r'\s+', ' ', cleaned)
-        
-        # Remove common payment processor prefixes
-        prefixes_to_remove = [
-            'paypal *',
-            'card purchase ',
-            'pos ',
-            'atm ',
-            'online payment ',
-            'subscription ',
-        ]
-        
-        for prefix in prefixes_to_remove:
-            if cleaned.startswith(prefix):
-                cleaned = cleaned[len(prefix):].strip()
-        
-        # Check against known providers
-        for provider_key, provider_data in self.merchant_database.items():
-            canonical_name = provider_data['canonical_name']
-            aliases = provider_data['aliases']
-            
-            # Check if cleaned name matches any alias
-            for alias in aliases:
-                if alias.lower() in cleaned or cleaned in alias.lower():
-                    return canonical_name
-            
-            # Check if provider key is in cleaned name
-            if provider_key.replace('_', ' ') in cleaned:
-                return canonical_name
-        
-        # If no match found, return cleaned version with title case
-        return cleaned.title()
-    
-    def identify_provider(self, merchant_name: str, amount: float) -> Optional[Dict]:
-        """
-        Identify subscription provider and return metadata.
-        
-        Args:
-            merchant_name: Normalized merchant name
-            amount: Transaction amount
-            
-        Returns:
-            Provider metadata if identified, None otherwise
-        """
-        
-        merchant_lower = merchant_name.lower()
-        
-        for provider_key, provider_data in self.merchant_database.items():
-            if merchant_name == provider_data['canonical_name']:
-                return {
-                    "provider_id": provider_key,
-                    "canonical_name": provider_data['canonical_name'],
-                    "category": provider_data['category'],
-                    "is_known_provider": True,
-                    "amount_matches_typical": amount in provider_data['typical_amounts']
-                }
-        
-        return None
-    
-    def get_provider_category(self, merchant_name: str) -> str:
-        """
-        Get category for a merchant.
-        
-        Returns: streaming, music, software, cloud_storage, tv, shopping, or other
-        """
-        
-        for provider_data in self.merchant_database.values():
-            if merchant_name == provider_data['canonical_name']:
-                return provider_data['category']
-        
-        return "other"
-    
-    def add_custom_provider(self, canonical_name: str, aliases: List[str], 
-                           category: str, typical_amounts: List[float]):
-        """
-        Add a custom provider to the database (for user-defined mappings).
-        
-        This allows users to teach the system about new subscription services.
-        """
-        
-        provider_key = canonical_name.lower().replace(' ', '_')
-        
-        self.merchant_database[provider_key] = {
-            "canonical_name": canonical_name,
-            "category": category,
-            "aliases": aliases,
-            "typical_amounts": typical_amounts
-        }
-        
-        logger.info(f"Added custom provider: {canonical_name}")
+        self._db = {k.lower(): v for k, v in MERCHANT_DATABASE.items()}
 
-# Made with Bob
+    def identify(self, raw_name: str) -> MerchantMatch:
+        normalized = raw_name.lower().strip()
+        if normalized in self._db:
+            e = self._db[normalized]
+            return MerchantMatch(raw_name, e["canonical"], e["category"], e["known"], 1.0)
+        for key, e in self._db.items():
+            if key in normalized or normalized in key:
+                return MerchantMatch(raw_name, e["canonical"], e["category"], e["known"], 0.85)
+        best_score, best_e = 0.0, None
+        for key, e in self._db.items():
+            score = self._similarity(normalized, key)
+            if score > best_score:
+                best_score, best_e = score, e
+        if best_score >= 0.7 and best_e:
+            return MerchantMatch(raw_name, best_e["canonical"], best_e["category"], best_e["known"], round(best_score, 2))
+        return MerchantMatch(raw_name, raw_name.title(), "Unknown", False, 0.0)
+
+    @staticmethod
+    def _similarity(a: str, b: str) -> float:
+        def bigrams(s):
+            return {s[i:i+2] for i in range(len(s) - 1)}
+        a_bg, b_bg = bigrams(a), bigrams(b)
+        if not a_bg or not b_bg:
+            return 0.0
+        return len(a_bg & b_bg) / len(a_bg | b_bg)

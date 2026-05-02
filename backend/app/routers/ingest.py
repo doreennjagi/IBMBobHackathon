@@ -1,171 +1,92 @@
-"""
-CSV Ingestion Router
-
-Handles bank statement CSV file uploads and processing.
-Accepts CSV files, normalizes transactions, and triggers subscription detection.
-"""
-
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
-from fastapi.responses import JSONResponse
-from typing import List
-import pandas as pd
 import io
-import logging
-
-from app.core.config import settings
+import asyncio
+import pandas as pd
+from fastapi import APIRouter, File, HTTPException, UploadFile
+from pydantic import BaseModel
 from app.services.pattern_detector import SubscriptionPatternDetector
-from app.services.merchant_fingerprint import MerchantFingerprintService
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter()
+detector = SubscriptionPatternDetector()
 
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+MAX_ROWS = 50000
 
-@router.post("/upload")
-async def upload_csv(
-    file: UploadFile = File(..., description="Bank statement CSV file")
-):
-    """
-    Upload and process a bank statement CSV file.
-    
-    This endpoint:
-    1. Validates the CSV file format and size
-    2. Normalizes transaction data
-    3. Detects subscription patterns
-    4. Returns structured subscription data
-    
-    Args:
-        file: CSV file upload (max 10MB)
-        
-    Returns:
-        JSON response with detected subscriptions and analysis summary
-    """
-    
-    # Validate file type
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid file type. Please upload a CSV file."
-        )
-    
-    # Read file content
+COLUMN_ALIASES = {
+    "description": "merchant_name", "narration": "merchant_name",
+    "payee": "merchant_name", "details": "merchant_name",
+    "debit": "amount", "transaction_date": "date",
+    "value_date": "date", "trans_date": "date",
+}
+
+class IngestionResponse(BaseModel):
+    status: str
+    total_transactions: int
+    subscriptions_found: int
+    critical_alerts: int
+    monthly_spend_detected: float
+    annual_spend_projected: float
+    subscriptions: list[dict]
+
+def sanitize_csv_value(value):
+    """Prevent CSV injection by escaping formula characters."""
+    if isinstance(value, str) and value and value[0] in ('=', '+', '-', '@', '\t', '\r'):
+        return "'" + value
+    return value
+
+@router.post("/subscriptions/ingest", response_model=IngestionResponse)
+async def ingest_csv(file: UploadFile = File(...)):
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only CSV files accepted.")
+    content = b""
+    chunk_size = 1024 * 1024
     try:
-        content = await file.read()
-        
-        # Check file size
-        file_size_mb = len(content) / (1024 * 1024)
-        if file_size_mb > settings.MAX_CSV_SIZE_MB:
-            raise HTTPException(
-                status_code=400,
-                detail=f"File too large. Maximum size is {settings.MAX_CSV_SIZE_MB}MB"
-            )
-        
-        # Try different encodings
-        df = None
-        for encoding in settings.ALLOWED_CSV_ENCODINGS:
-            try:
-                df = pd.read_csv(io.BytesIO(content), encoding=encoding)
-                logger.info(f"Successfully parsed CSV with {encoding} encoding")
-                break
-            except UnicodeDecodeError:
-                continue
-        
-        if df is None:
-            raise HTTPException(
-                status_code=400,
-                detail="Unable to parse CSV file. Please check the file encoding."
-            )
-        
-        # Validate required columns (flexible - will be normalized)
-        if df.empty:
-            raise HTTPException(
-                status_code=400,
-                detail="CSV file is empty"
-            )
-        
-        logger.info(f"Processing CSV with {len(df)} transactions")
-        
-        # Initialize services
-        pattern_detector = SubscriptionPatternDetector()
-        merchant_service = MerchantFingerprintService()
-        
-        # Normalize merchant names
-        df = merchant_service.normalize_transactions(df)
-        
-        # Detect subscription patterns
-        subscriptions = pattern_detector.detect_subscriptions(df)
-        
-        # Calculate summary statistics
-        summary = {
-            "total_transactions": len(df),
-            "subscriptions_detected": len(subscriptions),
-            "total_monthly_cost": sum(sub.get("monthly_cost", 0) for sub in subscriptions),
-            "date_range": {
-                "start": df["date"].min().isoformat() if "date" in df.columns else None,
-                "end": df["date"].max().isoformat() if "date" in df.columns else None,
-            }
-        }
-        
-        return {
-            "success": True,
-            "summary": summary,
-            "subscriptions": subscriptions,
-            "message": f"Successfully detected {len(subscriptions)} subscriptions"
-        }
-        
-    except pd.errors.EmptyDataError:
-        raise HTTPException(
-            status_code=400,
-            detail="CSV file is empty or invalid"
-        )
+        async with asyncio.timeout(30):
+            while chunk := await file.read(chunk_size):
+                content += chunk
+                if len(content) > MAX_FILE_SIZE:
+                    raise HTTPException(status_code=413, detail="File too large. Max 10MB.")
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=408, detail="Upload timeout.")
+    try:
+        df = pd.read_csv(io.StringIO(content.decode("utf-8", errors="replace")))
     except Exception as e:
-        logger.error(f"Error processing CSV: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error processing CSV file: {str(e)}"
-        )
-
-
-@router.get("/supported-banks")
-async def get_supported_banks():
-    """
-    Get list of supported bank CSV formats.
-    
-    Returns information about which banks' CSV exports are supported
-    and any special formatting requirements.
-    """
-    return {
-        "supported_banks": [
-            {
-                "name": "M-Pesa (Safaricom)",
-                "country": "Kenya",
-                "format": "Standard M-Pesa statement export",
-                "notes": "Export from M-Pesa app or MySafaricom portal"
-            },
-            {
-                "name": "Equity Bank",
-                "country": "Kenya",
-                "format": "Equitel or Equity Online statement",
-                "notes": "Download from online banking portal"
-            },
-            {
-                "name": "KCB Bank",
-                "country": "Kenya",
-                "format": "KCB Mobile or Internet Banking export",
-                "notes": "CSV export from transaction history"
-            },
-            {
-                "name": "Standard Bank",
-                "country": "International",
-                "format": "Standard CSV export",
-                "notes": "Generic format supported"
-            }
-        ],
-        "general_requirements": {
-            "max_file_size": f"{settings.MAX_CSV_SIZE_MB}MB",
-            "required_columns": ["date", "description/merchant", "amount"],
-            "supported_encodings": settings.ALLOWED_CSV_ENCODINGS
-        }
-    }
-
-# Made with Bob
+        raise HTTPException(status_code=422, detail=f"Could not parse CSV: {str(e)[:100]}")
+    if len(df) > MAX_ROWS:
+        raise HTTPException(status_code=413, detail=f"Too many rows. Max: {MAX_ROWS}")
+    df.columns = [c.lower().strip().replace(" ", "_") for c in df.columns]
+    for alias, standard in COLUMN_ALIASES.items():
+        if alias in df.columns and standard not in df.columns:
+            df = df.rename(columns={alias: standard})
+    missing = {"date", "merchant_name", "amount"} - set(df.columns)
+    if missing:
+        raise HTTPException(status_code=422, detail=f"Missing columns: {missing}")
+    for col in df.select_dtypes(include=["object"]).columns:
+        df[col] = df[col].apply(sanitize_csv_value)
+    subscriptions = detector.detect(df)
+    multipliers = {"weekly": 4.3, "bi-weekly": 2.15, "monthly": 1, "quarterly": 0.33, "annual": 0.083}
+    monthly_spend = sum(s.latest_amount * multipliers.get(s.frequency.value, 1) for s in subscriptions)
+    return IngestionResponse(
+        status="success",
+        total_transactions=len(df),
+        subscriptions_found=len(subscriptions),
+        critical_alerts=sum(1 for s in subscriptions if s.price_alert and s.price_alert.alert_level == "HIGH"),
+        monthly_spend_detected=round(monthly_spend, 2),
+        annual_spend_projected=round(monthly_spend * 12, 2),
+        subscriptions=[{
+            "merchant_canonical": s.merchant_canonical,
+            "category": s.category,
+            "frequency": s.frequency.value,
+            "average_amount": s.average_amount,
+            "latest_amount": s.latest_amount,
+            "status": s.status.value,
+            "confidence_score": s.confidence_score,
+            "first_seen": s.first_seen,
+            "last_seen": s.last_seen,
+            "price_alert": {"original_price": s.price_alert.original_price,
+                "current_price": s.price_alert.current_price,
+                "percentage_change": s.price_alert.percentage_change,
+                "alert_level": s.price_alert.alert_level,
+                "total_overcharge": s.price_alert.total_overcharge,
+            } if s.price_alert else None,
+        } for s in subscriptions],
+    )

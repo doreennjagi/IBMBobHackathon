@@ -1,137 +1,84 @@
-"""
-Subscriptions Router
-
-Handles CRUD operations for detected subscriptions and provides
-analysis endpoints for subscription health, trends, and cost projections.
-"""
-
-from fastapi import APIRouter, HTTPException, Query
-from typing import List, Optional
-import logging
-
-logger = logging.getLogger(__name__)
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+from typing import Optional
 
 router = APIRouter()
 
+MOCK_SUBSCRIPTIONS = [
+    {"id": 1, "merchant_canonical": "Netflix", "category": "Streaming", "frequency": "monthly", "average_amount": 1100.0, "latest_amount": 1100.0, "currency": "KES", "status": "Active", "confidence_score": 0.97, "first_seen": "2023-06-15", "last_seen": "2025-04-15", "known_provider": True, "monthly_cost": 1100.0, "price_alert": None},
+    {"id": 2, "merchant_canonical": "Spotify", "category": "Music", "frequency": "monthly", "average_amount": 299.0, "latest_amount": 399.0, "currency": "KES", "status": "Critical", "confidence_score": 0.95, "first_seen": "2023-08-01", "last_seen": "2025-04-01", "known_provider": True, "monthly_cost": 399.0, "price_alert": {"original_price": 299.0, "current_price": 399.0, "percentage_change": 33.4, "alert_level": "HIGH", "total_overcharge": 100.0}},
+    {"id": 3, "merchant_canonical": "iCloud", "category": "Cloud Storage", "frequency": "annual", "average_amount": 1200.0, "latest_amount": 1200.0, "currency": "KES", "status": "Active", "confidence_score": 0.91, "first_seen": "2022-03-01", "last_seen": "2024-03-01", "known_provider": True, "monthly_cost": 99.6, "price_alert": None},
+    {"id": 4, "merchant_canonical": "DStv", "category": "Streaming", "frequency": "monthly", "average_amount": 3500.0, "latest_amount": 3500.0, "currency": "KES", "status": "Zombie", "confidence_score": 0.88, "first_seen": "2023-01-10", "last_seen": "2024-08-10", "known_provider": True, "monthly_cost": 3500.0, "price_alert": None},
+    {"id": 5, "merchant_canonical": "Canva", "category": "Design", "frequency": "monthly", "average_amount": 650.0, "latest_amount": 650.0, "currency": "KES", "status": "Active", "confidence_score": 0.82, "first_seen": "2024-01-05", "last_seen": "2025-04-05", "known_provider": True, "monthly_cost": 650.0, "price_alert": None},
+]
 
-@router.get("/")
-async def list_subscriptions(
-    status: Optional[str] = Query(None, description="Filter by status: active, zombie, escalating, critical"),
-    sort_by: Optional[str] = Query("monthly_cost", description="Sort by: monthly_cost, name, last_charged"),
-    limit: int = Query(100, ge=1, le=500)
-):
-    """
-    List all detected subscriptions with optional filtering and sorting.
-    
-    Returns a list of subscriptions with their current status, cost trends,
-    and health ratings.
-    """
-    # TODO: Implement database query
-    return {
-        "subscriptions": [],
-        "total": 0,
-        "filters_applied": {
-            "status": status,
-            "sort_by": sort_by,
-            "limit": limit
-        }
-    }
+class DashboardSummary(BaseModel):
+    total_subscriptions: int
+    active_count: int
+    zombie_count: int
+    critical_count: int
+    escalating_count: int
+    total_monthly_spend: float
+    total_annual_spend: float
+    potential_savings: float
+    high_alerts: int
+    currency: str
 
+class HealthScore(BaseModel):
+    merchant: str
+    status: str
+    risk_score: int
+    monthly_cost: float
+    recommendation: str
+    alert_level: Optional[str] = None
 
-@router.get("/{subscription_id}")
-async def get_subscription(subscription_id: str):
-    """
-    Get detailed information about a specific subscription.
-    
-    Includes:
-    - Full transaction history
-    - 12-month cost trend
-    - Price change events
-    - Projected annual cost
-    """
-    # TODO: Implement database query
-    return {
-        "id": subscription_id,
-        "name": "Example Subscription",
-        "status": "active",
-        "monthly_cost": 9.99,
-        "message": "Subscription details endpoint - to be implemented"
-    }
+@router.get("/subscriptions")
+def list_subscriptions(status: Optional[str] = None, category: Optional[str] = None):
+    subs = MOCK_SUBSCRIPTIONS
+    if status:
+        subs = [s for s in subs if s["status"].lower() == status.lower()]
+    if category:
+        subs = [s for s in subs if s["category"].lower() == category.lower()]
+    return subs
 
+@router.get("/subscriptions/{subscription_id}")
+def get_subscription(subscription_id: int):
+    sub = next((s for s in MOCK_SUBSCRIPTIONS if s["id"] == subscription_id), None)
+    if not sub:
+        raise HTTPException(status_code=404, detail=f"Subscription {subscription_id} not found.")
+    return sub
 
-@router.get("/{subscription_id}/history")
-async def get_subscription_history(
-    subscription_id: str,
-    months: int = Query(12, ge=1, le=24, description="Number of months of history")
-):
-    """
-    Get transaction history for a specific subscription.
-    
-    Returns chronological list of all charges with amounts and dates.
-    """
-    # TODO: Implement transaction history query
-    return {
-        "subscription_id": subscription_id,
-        "history": [],
-        "months_analyzed": months
-    }
+@router.delete("/subscriptions/{subscription_id}")
+def cancel_subscription(subscription_id: int):
+    sub = next((s for s in MOCK_SUBSCRIPTIONS if s["id"] == subscription_id), None)
+    if not sub:
+        raise HTTPException(status_code=404, detail=f"Subscription {subscription_id} not found.")
+    return {"status": "cancelled", "message": f"{sub['merchant_canonical']} marked for cancellation.", "estimated_monthly_saving": sub["monthly_cost"]}
 
+@router.get("/dashboard/summary", response_model=DashboardSummary)
+def get_dashboard_summary():
+    subs = MOCK_SUBSCRIPTIONS
+    total_monthly = sum(s["monthly_cost"] for s in subs)
+    zombie_monthly = sum(s["monthly_cost"] for s in subs if s["status"] == "Zombie")
+    return DashboardSummary(
+        total_subscriptions=len(subs), active_count=sum(1 for s in subs if s["status"] == "Active"),
+        zombie_count=sum(1 for s in subs if s["status"] == "Zombie"),
+        critical_count=sum(1 for s in subs if s["status"] == "Critical"),
+        escalating_count=sum(1 for s in subs if s["status"] == "Escalating"),
+        total_monthly_spend=round(total_monthly, 2), total_annual_spend=round(total_monthly * 12, 2),
+        potential_savings=round(zombie_monthly, 2),
+        high_alerts=sum(1 for s in subs if s.get("price_alert") and s["price_alert"]["alert_level"] == "HIGH"),
+        currency="KES")
 
-@router.delete("/{subscription_id}")
-async def delete_subscription(subscription_id: str):
-    """
-    Mark a subscription as cancelled/deleted.
-    
-    This doesn't actually cancel the subscription with the provider,
-    but removes it from the user's tracking dashboard.
-    """
-    # TODO: Implement soft delete
-    return {
-        "success": True,
-        "message": f"Subscription {subscription_id} marked as deleted"
-    }
-
-
-@router.get("/analytics/summary")
-async def get_analytics_summary():
-    """
-    Get high-level analytics summary of all subscriptions.
-    
-    Returns:
-    - Total monthly spend
-    - Number of active subscriptions
-    - Number of price hikes detected
-    - Potential savings from cancellations
-    """
-    # TODO: Implement analytics aggregation
-    return {
-        "total_monthly_spend": 0.0,
-        "active_subscriptions": 0,
-        "price_hikes_detected": 0,
-        "potential_annual_savings": 0.0,
-        "subscription_health": {
-            "active": 0,
-            "zombie": 0,
-            "escalating": 0,
-            "critical": 0
-        }
-    }
-
-
-@router.get("/analytics/trends")
-async def get_spending_trends(
-    months: int = Query(12, ge=3, le=24, description="Number of months to analyze")
-):
-    """
-    Get spending trends over time.
-    
-    Returns monthly aggregated data for charting subscription costs over time.
-    """
-    # TODO: Implement trend analysis
-    return {
-        "months_analyzed": months,
-        "monthly_data": [],
-        "trend": "stable"  # stable, increasing, decreasing
-    }
-
-# Made with Bob
+@router.get("/subscriptions/health/{merchant_name}", response_model=HealthScore)
+def get_health_score(merchant_name: str):
+    sub = next((s for s in MOCK_SUBSCRIPTIONS if merchant_name.lower() in s["merchant_canonical"].lower()), None)
+    if not sub:
+        return HealthScore(merchant=merchant_name, status="Unknown", risk_score=0, monthly_cost=0.0, recommendation="No data found.")
+    risk, rec = 10, "Low risk — stable pricing."
+    if sub["status"] == "Zombie": risk, rec = 85, "Zombie subscription — paying for nothing. Cancel immediately."
+    elif sub["status"] == "Critical": risk, rec = 90, "Price increased >10%. Use AI Agent to negotiate or cancel."
+    elif sub["status"] == "Escalating": risk, rec = 60, "Gradual price creep. Review your plan options."
+    return HealthScore(merchant=sub["merchant_canonical"], status=sub["status"], risk_score=risk,
+        monthly_cost=sub["monthly_cost"], recommendation=rec,
+        alert_level=sub["price_alert"]["alert_level"] if sub.get("price_alert") else None)
