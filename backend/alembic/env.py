@@ -17,7 +17,7 @@ _BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(_BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(_BACKEND_ROOT))
 
-from app.core.config import settings  # noqa: E402
+from app.core.config import get_settings  # noqa: E402
 from app.models import (  # noqa: E402 — register mappers with Base.metadata
     agent_output,
     price_alert,
@@ -37,7 +37,7 @@ target_metadata = Base.metadata
 
 def get_url() -> str:
     """Prefer live DATABASE_URL from environment over alembic.ini placeholder."""
-    return os.environ.get("DATABASE_URL", settings.DATABASE_URL)
+    return os.environ.get("DATABASE_URL", get_settings().database_url)
 
 
 def run_migrations_offline() -> None:

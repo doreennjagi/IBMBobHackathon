@@ -1,26 +1,17 @@
 /**
- * Dashboard Page
- * 
- * Main subscription intelligence dashboard showing:
- * - Subscription overview cards
- * - Spending trends chart
- * - Active subscriptions table
- * - Price hike alerts
+ * Legacy placeholder route.
  */
 
-import { Content, Grid, Column } from '@carbon/react'
+import { ThemeToggle } from '@components/layout/ThemeToggle'
 
 export default function Dashboard() {
   return (
-    <Content>
-      <Grid>
-        <Column lg={16}>
-          <h1>SubLeech Dashboard</h1>
-          <p>Subscription intelligence dashboard - to be implemented with IBM Bob</p>
-        </Column>
-      </Grid>
-    </Content>
+    <div className="sl-dashboard" style={{ paddingTop: '2rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+        <ThemeToggle />
+      </div>
+      <h1 style={{ fontFamily: 'var(--sl-font-serif)', fontSize: '1.75rem' }}>SubLeech legacy</h1>
+      <p style={{ color: 'var(--sl-muted)', fontWeight: 600 }}>Use the main app at / and /dashboard.</p>
+    </div>
   )
 }
-
-// Made with Bob

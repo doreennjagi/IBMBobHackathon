@@ -1,436 +1,664 @@
 /**
- * SubscriptionDashboard
- *
- * Primary operator view: subscription table, wellness badges, summary KPIs,
- * search/filter, and quick actions to launch cancellation / negotiation flows.
- * Data is mocked here; swap the source for React Query + REST when the API is wired.
+ * Subscription dashboard — neo-brutalist reference UI.
  */
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import styled from '@emotion/styled'
 import { useNavigate } from 'react-router-dom'
-import {
-  Button,
-  ButtonSet,
-  Content,
-  DataTable,
-  Dropdown,
-  Grid,
-  Column,
-  Layer,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableToolbar,
-  TableToolbarContent,
-  TableToolbarSearch,
-  Tag,
-  Tile,
-} from '@carbon/react'
-import AlertBanner from '@components/AlertBanner'
+import { LayoutGroup, motion } from 'framer-motion'
+
 import CostTrendChart from '@components/CostTrendChart'
+import { ThemeToggle } from '@components/layout/ThemeToggle'
+import { TickerBar } from '@components/layout/TickerBar'
+import AlertBanner from '@components/ui/AlertBanner'
+import { Card } from '@components/ui/Card'
+import { CategoryPills, FilterPills, type FilterPillItem } from '@components/ui/FilterPills'
+import { NeoModal } from '@components/ui/NeoModal'
+import { PriorityHikeCard } from '@components/ui/PriorityHikeCard'
+import { StatCard } from '@components/ui/StatCard'
+import { SubscriptionCard } from '@components/ui/SubscriptionCard'
+import { useCountUp } from '@/hooks/useCountUp'
+import { useDashboardStore } from '@/stores/dashboardStore'
 import type { PriceHikeAlert } from '@/types/alerts'
-import type { MonthlyCostPoint, PriceIncreaseMarker, SubscriptionHealth, SubscriptionRow } from '@/types/subscription'
+import type { MonthlyCostPoint } from '@/types/subscription'
+import type { SubscriptionRow } from '@/types/subscription'
+import type { DashboardPillId } from '@components/ui/theme'
 
-const MOCK_SUBSCRIPTIONS: SubscriptionRow[] = [
-  {
-    id: 'sub-1',
-    name: 'StreamVault Plus',
-    category: 'Streaming',
-    monthly_cost: 16.99,
-    health: 'escalating',
-    last_billed: '2025-04-12',
-  },
-  {
-    id: 'sub-2',
-    name: 'CloudNote Pro',
-    category: 'Productivity',
-    monthly_cost: 11.49,
-    health: 'active',
-    last_billed: '2025-04-01',
-  },
-  {
-    id: 'sub-3',
-    name: 'FitPulse',
-    category: 'Health',
-    monthly_cost: 9.99,
-    health: 'zombie',
-    last_billed: '2024-11-03',
-  },
-  {
-    id: 'sub-4',
-    name: 'MegaMobile',
-    category: 'Telecom',
-    monthly_cost: 89.0,
-    health: 'critical',
-    last_billed: '2025-04-15',
-  },
+const WELLNESS_PILLS: FilterPillItem[] = [
+  { id: 'all', label: 'All' },
+  { id: 'hikes', label: 'Hiked', dot: 'coral' },
+  { id: 'unused', label: 'Unused', dot: 'yellow' },
+  { id: 'active', label: 'Active', dot: 'green' },
 ]
 
-const MOCK_ALERTS: PriceHikeAlert[] = [
-  {
-    id: 'alert-1',
-    subscriptionName: 'StreamVault Plus',
-    oldPrice: 14.99,
-    newPrice: 16.99,
-    increasePercentage: 13.3,
-  },
-]
-
-const TREND_BY_ID: Record<
-  string,
-  { points: MonthlyCostPoint[]; hikes: PriceIncreaseMarker[] }
-> = {
-  'sub-1': {
-    points: [
-      { month: 'May', amount: 12.99 },
-      { month: 'Jun', amount: 12.99 },
-      { month: 'Jul', amount: 12.99 },
-      { month: 'Aug', amount: 12.99 },
-      { month: 'Sep', amount: 12.99 },
-      { month: 'Oct', amount: 12.99 },
-      { month: 'Nov', amount: 12.99 },
-      { month: 'Dec', amount: 12.99 },
-      { month: 'Jan', amount: 12.99 },
-      { month: 'Feb', amount: 12.99 },
-      { month: 'Mar', amount: 14.99 },
-      { month: 'Apr', amount: 16.99 },
-    ],
-    hikes: [{ month: 'Mar', oldAmount: 12.99, newAmount: 14.99, increasePct: 15.4 }],
-  },
-  'sub-2': {
-    points: Array.from({ length: 12 }, (_, i) => ({
-      month: ['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'][i] ?? 'May',
-      amount: 11.49,
-    })),
-    hikes: [],
-  },
-  'sub-3': {
-    points: Array.from({ length: 12 }, (_, i) => ({
-      month: ['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'][i] ?? 'May',
-      amount: 9.99,
-    })),
-    hikes: [],
-  },
-  'sub-4': {
-    points: [
-      { month: 'May', amount: 65 },
-      { month: 'Jun', amount: 65 },
-      { month: 'Jul', amount: 72 },
-      { month: 'Aug', amount: 72 },
-      { month: 'Sep', amount: 78 },
-      { month: 'Oct', amount: 78 },
-      { month: 'Nov', amount: 82 },
-      { month: 'Dec', amount: 82 },
-      { month: 'Jan', amount: 85 },
-      { month: 'Feb', amount: 85 },
-      { month: 'Mar', amount: 87 },
-      { month: 'Apr', amount: 89 },
-    ],
-    hikes: [
-      { month: 'Jul', oldAmount: 65, newAmount: 72, increasePct: 10.8 },
-      { month: 'Nov', oldAmount: 78, newAmount: 82, increasePct: 5.1 },
-    ],
-  },
-}
-
-const HEALTH_ITEMS: { id: SubscriptionHealth | 'all'; text: string }[] = [
-  { id: 'all', text: 'All statuses' },
-  { id: 'active', text: 'Active' },
-  { id: 'zombie', text: 'Zombie' },
-  { id: 'escalating', text: 'Escalating' },
-  { id: 'critical', text: 'Critical' },
-]
-
-function healthTagType(health: SubscriptionHealth): 'green' | 'gray' | 'purple' | 'red' {
-  switch (health) {
-    case 'active':
-      return 'green'
-    case 'zombie':
-      return 'gray'
-    case 'escalating':
-      return 'purple'
-    case 'critical':
-      return 'red'
+function applyWellnessPill(rows: SubscriptionRow[], pill: DashboardPillId): SubscriptionRow[] {
+  if (pill === 'all') {
+    return rows
   }
+  if (pill === 'hikes') {
+    return rows.filter((r) => (r.price_hike_percent ?? 0) > 10 || r.health === 'escalating' || r.health === 'critical')
+  }
+  if (pill === 'unused') {
+    return rows.filter((r) => r.health === 'zombie')
+  }
+  if (pill === 'active') {
+    return rows.filter((r) => r.health === 'active')
+  }
+  return rows
 }
 
-function formatHealthLabel(health: SubscriptionHealth): string {
-  return health.charAt(0).toUpperCase() + health.slice(1)
+function estimateOldMonthly(row: SubscriptionRow): number | null {
+  if (row.price_hike_percent == null || row.price_hike_percent <= 10) {
+    return null
+  }
+  return row.monthly_cost / (1 + row.price_hike_percent / 100)
 }
+
+function overpaidSinceHike(row: SubscriptionRow): number {
+  const oldP = estimateOldMonthly(row)
+  if (oldP == null) {
+    return 0
+  }
+  return Math.max(0, (row.monthly_cost - oldP) * 6)
+}
+
+function momFootnote(subs: SubscriptionRow[], trendMap: Record<string, { points: MonthlyCostPoint[] }>): string | null {
+  let start = 0
+  let end = 0
+  for (const s of subs) {
+    const pts = trendMap[s.id]?.points
+    if (!pts?.length) {
+      continue
+    }
+    start += pts[0].amount
+    end += pts[pts.length - 1].amount
+  }
+  if (start <= 0) {
+    return null
+  }
+  const pct = ((end - start) / start) * 100
+  if (Math.abs(pct) < 0.35) {
+    return null
+  }
+  const arrow = pct > 0 ? '↑' : '↓'
+  return `${arrow} ${Math.abs(pct).toFixed(1)}% vs window start`
+}
+
+function exportSubscriptionsCsv(rows: SubscriptionRow[]) {
+  const headers = ['name', 'category', 'monthly_cost', 'health', 'last_billed', 'billing_cycle']
+  const lines = [
+    headers.join(','),
+    ...rows.map((r) =>
+      [r.name, r.category, r.monthly_cost, r.health, r.last_billed, r.billing_cycle ?? ''].map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','),
+    ),
+  ]
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'subleech-subscriptions.csv'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function LogoMark() {
+  return (
+    <svg width="32" height="32" viewBox="0 0 36 36" aria-hidden>
+      <path d="M18 2C10 2 4 9 4 17c0 8 7 14 14 17 7-3 14-9 14-17C32 9 26 2 18 2z" fill="#ff4d3d" stroke="#0a0a0a" strokeWidth="2" />
+      <text x="18" y="22" textAnchor="middle" fontSize="14" fontWeight="800" fill="#fff" fontFamily="system-ui">
+        S
+      </text>
+    </svg>
+  )
+}
+
+const PageHeader = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+`
+
+const VerdictTitle = styled.h1`
+  margin: 0.25rem 0 0;
+  font-family: var(--sl-font-serif);
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 800;
+  line-height: 1.05;
+  color: var(--sl-ink);
+`
+
+const VerdictGrad = styled.span`
+  background: linear-gradient(90deg, #ff4d3d, #c92a2a);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+`
+
+const SummaryStrip = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--sl-radius-pill);
+  background: linear-gradient(90deg, var(--sl-summary-a), var(--sl-summary-b));
+  border: 2px solid var(--sl-line);
+  box-shadow: var(--sl-shadow-sm);
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--sl-coral);
+`
+
+const Kicker = styled.p`
+  margin: 0;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--sl-muted);
+`
+
+const SectionTitle = styled.h2`
+  margin: 0;
+  font-family: var(--sl-font-serif);
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  font-weight: 800;
+  color: var(--sl-ink);
+`
+
+const ToolbarRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+`
+
+const SearchInput = styled.input`
+  width: 100%;
+  max-width: 22rem;
+  min-height: 46px;
+  padding: 0.55rem 1rem 0.55rem 2.5rem;
+  border-radius: var(--sl-radius-pill);
+  border: 2px solid var(--sl-line);
+  background-color: var(--sl-surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' fill='%230a0a0a'%3E%3Cpath d='M12 11h-.79l-.28-.27A6.47 6.47 0 0013 6.5 6.5 6.5 0 106.5 13a6.47 6.47 0 004.23-1.57l.27.28v.79l5 4.99L16.99 16l-4.99-5zm-5.5 0C5.01 11 3 8.99 3 6.5S5.01 2 7.5 2 12 4.01 12 6.5 9.99 11 7.5 11z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 0.75rem center;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--sl-ink);
+  box-shadow: var(--sl-shadow-sm);
+
+  &:focus {
+    outline: 3px solid var(--sl-coral);
+    outline-offset: 2px;
+  }
+
+  &::placeholder {
+    color: var(--sl-muted);
+  }
+`
+
+const ClearLink = styled.button`
+  border: none;
+  background: none;
+  padding: 0;
+  margin-top: 0.35rem;
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: var(--sl-coral);
+  cursor: pointer;
+  text-decoration: underline;
+`
+
+const Celebrate = styled(Card)`
+  padding: 1.1rem 1.25rem;
+  border-color: #16a34a;
+  background: #f0fdf4;
+`
+
+const EmptyIllu = styled.div`
+  max-width: 18rem;
+  margin-bottom: 1rem;
+  color: var(--sl-coral);
+`
+
+const FooterTag = styled.p`
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sl-muted);
+  margin: 2.5rem 0 0;
+  padding-top: 1.5rem;
+  border-top: 2px solid var(--sl-line);
+`
+
+const Stack = styled.div<{ $gap?: number }>`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ $gap = 5 }) => $gap * 0.25}rem;
+`
 
 export default function SubscriptionDashboard() {
   const navigate = useNavigate()
-  const [healthFilter, setHealthFilter] = useState<SubscriptionHealth | 'all'>('all')
-  const [selectedId, setSelectedId] = useState<string>(MOCK_SUBSCRIPTIONS[0]?.id ?? '')
+  const subscriptions = useDashboardStore((s) => s.subscriptions)
+  const alerts = useDashboardStore((s) => s.alerts)
+  const trends = useDashboardStore((s) => s.trends)
+  const source = useDashboardStore((s) => s.source)
+  const loadDemo = useDashboardStore((s) => s.loadDemo)
+
+  const [wellnessPill, setWellnessPill] = useState<DashboardPillId>('all')
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedId, setSelectedId] = useState('')
+  const [dismissedAlertIds, setDismissedAlertIds] = useState(() => new Set<string>())
+  const [skeleton, setSkeleton] = useState(true)
+  const announceRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setSkeleton(false), 480)
+    return () => window.clearTimeout(t)
+  }, [])
+
+  const categories = useMemo(() => {
+    const u = new Set(subscriptions.map((s) => s.category))
+    return ['all', ...Array.from(u).sort()]
+  }, [subscriptions])
+
+  const categoryPillItems = useMemo(
+    () => categories.map((c) => ({ id: c, text: c === 'all' ? 'All categories' : c })),
+    [categories],
+  )
+
+  const wellnessFiltered = useMemo(() => applyWellnessPill(subscriptions, wellnessPill), [subscriptions, wellnessPill])
+
+  const categoryFiltered = useMemo(() => {
+    if (categoryFilter === 'all') {
+      return wellnessFiltered
+    }
+    return wellnessFiltered.filter((s) => s.category === categoryFilter)
+  }, [wellnessFiltered, categoryFilter])
 
   const filteredSubscriptions = useMemo(() => {
-    if (healthFilter === 'all') {
-      return MOCK_SUBSCRIPTIONS
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) {
+      return categoryFiltered
     }
-    return MOCK_SUBSCRIPTIONS.filter((s) => s.health === healthFilter)
-  }, [healthFilter])
+    return categoryFiltered.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.category.toLowerCase().includes(q) ||
+        s.health.toLowerCase().includes(q) ||
+        s.last_billed.toLowerCase().includes(q) ||
+        s.monthly_cost.toFixed(2).includes(q),
+    )
+  }, [categoryFiltered, searchQuery])
+
+  const priorityRows = useMemo(
+    () =>
+      filteredSubscriptions.filter((s) => (s.price_hike_percent ?? 0) > 10 || s.health === 'escalating' || s.health === 'critical'),
+    [filteredSubscriptions],
+  )
+
+  const priorityIds = useMemo(() => new Set(priorityRows.map((r) => r.id)), [priorityRows])
+
+  const gridRows = useMemo(
+    () => filteredSubscriptions.filter((s) => !priorityIds.has(s.id)),
+    [filteredSubscriptions, priorityIds],
+  )
 
   const summary = useMemo(() => {
     const totalMonthly = filteredSubscriptions.reduce((acc, s) => acc + s.monthly_cost, 0)
     const zombieOrCritical = filteredSubscriptions.filter((s) => s.health === 'zombie' || s.health === 'critical')
-    const potentialMonthlySavings = zombieOrCritical.reduce((acc, s) => acc + s.monthly_cost, 0)
+    const potentialMonthly = zombieOrCritical.reduce((acc, s) => acc + s.monthly_cost, 0)
+    const activeCount = filteredSubscriptions.filter((s) => s.health === 'active').length
     return {
       totalMonthly,
-      count: filteredSubscriptions.length,
-      potentialMonthlySavings,
+      annualSavings: potentialMonthly * 12,
+      activeCount,
+      totalTracked: subscriptions.length,
     }
-  }, [filteredSubscriptions])
+  }, [filteredSubscriptions, subscriptions.length])
 
-  const headers = useMemo(
-    () => [
-      { key: 'name', header: 'Name' },
-      { key: 'category', header: 'Category' },
-      { key: 'monthly_cost', header: 'Monthly cost' },
-      { key: 'health', header: 'Status' },
-      { key: 'last_billed', header: 'Last billed' },
-      { key: 'actions', header: 'Actions' },
-    ],
-    [],
-  )
-
-  const rows = useMemo(
-    () =>
-      filteredSubscriptions.map((s) => ({
-        id: s.id,
-        name: s.name,
-        category: s.category,
-        monthly_cost: s.monthly_cost,
-        health: s.health,
-        last_billed: s.last_billed,
-        actions: '',
-      })),
-    [filteredSubscriptions],
-  )
+  const activeDisplay = useCountUp(summary.activeCount, 720)
+  const moneyDisplay = useCountUp(summary.totalMonthly, 880)
+  const savingsDisplay = useCountUp(summary.annualSavings, 1040)
 
   const rowModelById = useMemo(
     () => Object.fromEntries(filteredSubscriptions.map((s) => [s.id, s])) as Record<string, SubscriptionRow>,
     [filteredSubscriptions],
   )
 
-  const selectedTrend = TREND_BY_ID[selectedId] ?? { points: [], hikes: [] }
-  const selectedSub = rowModelById[selectedId]
+  const selectedTrend = trends[selectedId] ?? { points: [], hikes: [] }
+  const selectedSub = selectedId ? rowModelById[selectedId] : undefined
 
-  const onHealthDropdownChange = useCallback(
-    (data: { selectedItem?: { id: string; text: string } | null }) => {
-      const id = data.selectedItem?.id
-      if (id === 'active' || id === 'zombie' || id === 'escalating' || id === 'critical' || id === 'all') {
-        setHealthFilter(id)
+  const mom = useMemo(() => momFootnote(filteredSubscriptions, trends), [filteredSubscriptions, trends])
+
+  const savingsMultiplier =
+    summary.totalMonthly > 0 && summary.annualSavings > 0
+      ? `That's ${(summary.annualSavings / summary.totalMonthly).toFixed(1)}× your monthly spend!`
+      : null
+
+  const hikeAlertCount = useMemo(
+    () => filteredSubscriptions.filter((s) => (s.price_hike_percent ?? 0) > 10).length,
+    [filteredSubscriptions],
+  )
+
+  const tickerSegments = useMemo(() => {
+    const parts = [
+      `${savingsDisplay.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })} recoverable`,
+      "We're on your side",
+      `Scanned ${subscriptions.length} charges`,
+      hikeAlertCount > 0 ? `${hikeAlertCount} silent hikes caught` : 'No silent hikes in view',
+    ]
+    return parts
+  }, [savingsDisplay, subscriptions.length, hikeAlertCount])
+
+  const announce = useCallback((msg: string) => {
+    const el = announceRef.current
+    if (el) {
+      el.textContent = msg
+    }
+  }, [])
+
+  const handleGenerateFromAlert = useCallback(
+    (alert: PriceHikeAlert) => {
+      const match = subscriptions.find((s) => s.name === alert.subscriptionName)
+      if (match) {
+        navigate(`/ai-editor/${encodeURIComponent(match.id)}?intent=cancel`)
       }
     },
-    [],
+    [navigate, subscriptions],
   )
 
   const handleTakeAction = useCallback(
     (alert: PriceHikeAlert) => {
-      const match = MOCK_SUBSCRIPTIONS.find((s) => s.name === alert.subscriptionName)
+      const match = subscriptions.find((s) => s.name === alert.subscriptionName)
       if (match) {
         navigate(`/ai-editor/${encodeURIComponent(match.id)}?intent=negotiate`)
       }
     },
-    [navigate],
+    [navigate, subscriptions],
   )
 
+  const dismissAlert = useCallback((id: string) => {
+    setDismissedAlertIds((prev) => new Set(prev).add(id))
+  }, [])
+
+  const filtersActive = wellnessPill !== 'all' || categoryFilter !== 'all' || searchQuery.trim().length > 0
+
+  const clearFilters = useCallback(() => {
+    setWellnessPill('all')
+    setCategoryFilter('all')
+    setSearchQuery('')
+  }, [])
+
+  const showHikeCelebration = alerts.length === 0
+
+  const shareReport = useCallback(async () => {
+    const text = `SubLeech — ${filteredSubscriptions.length} subscriptions · ${summary.totalMonthly.toLocaleString(undefined, { style: 'currency', currency: 'USD' })} / mo`
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ title: 'SubLeech report', text })
+      } catch {
+        /* dismissed */
+      }
+    } else {
+      await navigator.clipboard.writeText(text)
+    }
+  }, [filteredSubscriptions.length, summary.totalMonthly])
+
+  if (subscriptions.length === 0) {
+    return (
+      <div className="sl-dashboard">
+        <TickerBar />
+        <div ref={announceRef} className="sl-sr-only" role="status" aria-live="polite" aria-atomic="true" />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '0.75rem' }}>
+          <ThemeToggle />
+        </div>
+        <Stack $gap={6} style={{ paddingTop: '0.5rem', maxWidth: 520 }}>
+          <EmptyIllu aria-hidden>
+            <svg viewBox="0 0 120 100" width="100%" height="100">
+              <rect x="10" y="20" width="100" height="60" rx="8" fill="currentColor" opacity="0.15" />
+              <path d="M30 45h60M30 58h40" stroke="currentColor" strokeWidth="4" strokeLinecap="round" opacity="0.4" />
+              <circle cx="85" cy="38" r="12" fill="currentColor" opacity="0.3" />
+            </svg>
+          </EmptyIllu>
+          <VerdictTitle>No subscription data yet</VerdictTitle>
+          <p style={{ margin: 0, color: 'var(--sl-muted)' }}>
+            Upload a bank CSV from the home page, or load demo data to explore the dashboard.
+          </p>
+          <div className="sl-btn-row">
+            <button type="button" className="sl-btn sl-btn--black" onClick={() => navigate('/')}>
+              Go to upload
+            </button>
+            <button type="button" className="sl-btn sl-btn--ghost" onClick={() => loadDemo()}>
+              Load demo data
+            </button>
+          </div>
+        </Stack>
+      </div>
+    )
+  }
+
   return (
-    <Content>
-      <Grid fullWidth narrow className="subscription-dashboard">
-        <Column lg={16} md={8} sm={4}>
-          <Stack gap={7}>
-            <header>
-              <h1 className="cds--type-productive-heading-05">Subscription intelligence</h1>
-              <p className="cds--type-body-01">
-                Review recurring charges, spot unhealthy billing patterns, and launch AI-assisted actions.
+    <>
+      <div ref={announceRef} className="sl-sr-only" role="status" aria-live="polite" aria-atomic="true" />
+      <TickerBar segments={tickerSegments} />
+      <div className="sl-dashboard">
+        <Stack $gap={6}>
+          <PageHeader>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <LogoMark />
+                <span style={{ fontWeight: 800, fontSize: '0.8rem', letterSpacing: '0.08em' }}>SUBLEECH</span>
+              </div>
+              <VerdictTitle>
+                The <VerdictGrad>verdict.</VerdictGrad>
+              </VerdictTitle>
+              <p style={{ margin: '0.35rem 0 0', fontSize: '0.95rem', fontWeight: 600, color: 'var(--sl-muted)' }}>
+                Here&apos;s what&apos;s been quietly nibbling on your account.
               </p>
-            </header>
+              <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: 'var(--sl-muted)' }}>
+                {source === 'demo' ? 'Demo data loaded.' : 'From your last upload.'}
+              </p>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+              <ThemeToggle />
+              <button type="button" className="sl-btn sl-btn--ghost sl-btn--sm" onClick={() => exportSubscriptionsCsv(filteredSubscriptions)}>
+                📤 Export
+              </button>
+              <button type="button" className="sl-btn sl-btn--ghost sl-btn--sm" onClick={() => void shareReport()}>
+                🔗 Share
+              </button>
+            </div>
+          </PageHeader>
 
-            <AlertBanner alerts={MOCK_ALERTS} onTakeAction={handleTakeAction} />
-
-            <Layer level={1}>
-              <Grid fullWidth>
-                <Column sm={4} md={4} lg={5}>
-                  <Tile role="region" aria-label="Total monthly subscription spend">
-                    <Stack gap={3}>
-                      <p className="cds--label-01">Total monthly spend</p>
-                      <p className="cds--type-productive-heading-04">
-                        {summary.totalMonthly.toLocaleString(undefined, { style: 'currency', currency: 'USD' })}
-                      </p>
-                    </Stack>
-                  </Tile>
-                </Column>
-                <Column sm={4} md={4} lg={5}>
-                  <Tile role="region" aria-label="Number of tracked subscriptions">
-                    <Stack gap={3}>
-                      <p className="cds--label-01">Subscriptions</p>
-                      <p className="cds--type-productive-heading-04">{summary.count}</p>
-                    </Stack>
-                  </Tile>
-                </Column>
-                <Column sm={4} md={8} lg={6}>
-                  <Tile role="region" aria-label="Potential monthly savings from zombie or critical subscriptions">
-                    <Stack gap={3}>
-                      <p className="cds--label-01">Potential savings (zombie / critical)</p>
-                      <p className="cds--type-productive-heading-04">
-                        {summary.potentialMonthlySavings.toLocaleString(undefined, {
-                          style: 'currency',
-                          currency: 'USD',
-                        })}
-                        <span className="cds--type-caption-01"> / month</span>
-                      </p>
-                    </Stack>
-                  </Tile>
-                </Column>
-              </Grid>
-            </Layer>
-
-            <Stack gap={5}>
-              <Dropdown
-                id="subscription-health-filter"
-                titleText="Filter by wellness status"
-                label="Filter subscriptions"
-                items={HEALTH_ITEMS}
-                selectedItem={HEALTH_ITEMS.find((i) => i.id === healthFilter) ?? HEALTH_ITEMS[0]}
-                itemToString={(item) => (item ? item.text : '')}
-                onChange={onHealthDropdownChange}
+          {skeleton ? (
+            <div className="sl-stat-carousel" aria-busy="true" aria-label="Loading summary">
+              <div className="sl-skeleton" style={{ height: 120, borderRadius: 18, border: '2px solid var(--sl-line)' }} />
+              <div className="sl-skeleton" style={{ height: 120, borderRadius: 18, border: '2px solid var(--sl-line)' }} />
+              <div className="sl-skeleton" style={{ height: 120, borderRadius: 18, border: '2px solid var(--sl-line)' }} />
+            </div>
+          ) : (
+            <div className="sl-stat-carousel">
+              <StatCard
+                label="Outflow"
+                value={moneyDisplay.toLocaleString(undefined, {
+                  style: 'currency',
+                  currency: 'USD',
+                  maximumFractionDigits: 0,
+                })}
+                variant="purple"
+                appearance="soft"
+                icon="💸"
+                subLabel="per month"
+                footnote={mom}
+                ariaLabel="Total monthly subscription spend"
               />
-
-              <DataTable
-                rows={rows}
-                headers={headers}
-                filterRows={({ rowIds, inputValue }) => {
-                  const q = inputValue.trim().toLowerCase()
-                  if (!q) {
-                    return rowIds
-                  }
-                  return rowIds.filter((id) => {
-                    const m = rowModelById[id]
-                    if (!m) {
-                      return false
-                    }
-                    return (
-                      m.name.toLowerCase().includes(q) ||
-                      m.category.toLowerCase().includes(q) ||
-                      m.health.toLowerCase().includes(q) ||
-                      m.last_billed.toLowerCase().includes(q) ||
-                      m.monthly_cost.toFixed(2).includes(q)
-                    )
-                  })
-                }}
-                render={({ rows: tableRows, headers: hdrs, getHeaderProps, getRowProps, getTableProps, onInputChange }) => (
-                  <TableContainer title="Subscriptions">
-                    <TableToolbar aria-label="Subscription table toolbar">
-                      <TableToolbarContent>
-                        <TableToolbarSearch
-                          persistent
-                          placeholder="Search name, category, status, or amount"
-                          labelText="Search subscriptions"
-                          id="subscription-table-search"
-                          onChange={(e, value) => onInputChange(e, value ?? '')}
-                        />
-                      </TableToolbarContent>
-                    </TableToolbar>
-                    <Table {...getTableProps()} aria-label="Subscription list">
-                      <TableHead>
-                        <TableRow>
-                          {hdrs.map((header) => (
-                            <TableHeader {...getHeaderProps({ header })}>{header.header}</TableHeader>
-                          ))}
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {tableRows.map((row) => (
-                          <TableRow
-                            {...getRowProps({
-                              row,
-                              onClick: () => setSelectedId(row.id),
-                            })}
-                            aria-selected={selectedId === row.id}
-                          >
-                            {row.cells.map((cell) => {
-                              const headerKey = cell.info.header
-                              if (headerKey === 'health') {
-                                const model = rowModelById[row.id]
-                                const h = (model?.health ?? 'active') as SubscriptionHealth
-                                return (
-                                  <TableCell key={cell.id}>
-                                    <Tag type={healthTagType(h)} size="md" aria-label={`Wellness status ${formatHealthLabel(h)}`}>
-                                      {formatHealthLabel(h)}
-                                    </Tag>
-                                  </TableCell>
-                                )
-                              }
-                              if (headerKey === 'monthly_cost') {
-                                const model = rowModelById[row.id]
-                                const amt = model?.monthly_cost ?? Number(cell.value)
-                                return (
-                                  <TableCell key={cell.id}>
-                                    {amt.toLocaleString(undefined, { style: 'currency', currency: 'USD' })}
-                                  </TableCell>
-                                )
-                              }
-                              if (headerKey === 'actions') {
-                                return (
-                                  <TableCell key={cell.id}>
-                                    <ButtonSet stacked>
-                                      <Button
-                                        kind="secondary"
-                                        size="sm"
-                                        aria-label={`Cancel ${rowModelById[row.id]?.name ?? 'subscription'}`}
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          navigate(`/ai-editor/${encodeURIComponent(row.id)}?intent=cancel`)
-                                        }}
-                                      >
-                                        Cancel
-                                      </Button>
-                                      <Button
-                                        kind="tertiary"
-                                        size="sm"
-                                        aria-label={`Negotiate ${rowModelById[row.id]?.name ?? 'subscription'}`}
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          navigate(`/ai-editor/${encodeURIComponent(row.id)}?intent=negotiate`)
-                                        }}
-                                      >
-                                        Negotiate
-                                      </Button>
-                                    </ButtonSet>
-                                  </TableCell>
-                                )
-                              }
-                              return <TableCell key={cell.id}>{String(cell.value ?? '')}</TableCell>
-                            })}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                )}
+              <StatCard
+                label="Inventory"
+                value={String(Math.round(activeDisplay))}
+                variant="teal"
+                appearance="soft"
+                icon="📦"
+                subLabel="active services"
+                metaLine={`${subscriptions.length} total tracked`}
+                ariaLabel="Active subscription count"
               />
+              <StatCard
+                label="Recoverable"
+                value={savingsDisplay.toLocaleString(undefined, {
+                  style: 'currency',
+                  currency: 'USD',
+                  maximumFractionDigits: 0,
+                })}
+                variant="gold"
+                appearance="solid"
+                icon="⚡"
+                subLabel="you could save / year"
+                metaLine={savingsMultiplier}
+                ariaLabel="Potential annual savings"
+              />
+            </div>
+          )}
+
+          {hikeAlertCount > 0 ? (
+            <SummaryStrip role="status">
+              <span aria-hidden>⚠️</span>
+              Heads up — {hikeAlertCount} service{hikeAlertCount === 1 ? '' : 's'} increased prices without telling you.
+            </SummaryStrip>
+          ) : null}
+
+          <AlertBanner
+            alerts={alerts}
+            dismissedIds={dismissedAlertIds}
+            onDismiss={dismissAlert}
+            onGenerateResponse={handleGenerateFromAlert}
+            onTakeAction={handleTakeAction}
+          />
+
+          {showHikeCelebration ? (
+            <Celebrate variant="default">
+              <p style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>No backend alerts — you&apos;re in the clear! 🎉</p>
+              <p style={{ margin: '0.45rem 0 0', fontSize: '0.875rem', color: 'var(--sl-muted)' }}>
+                We still flag silent hikes in your statement below.
+              </p>
+            </Celebrate>
+          ) : null}
+
+          {priorityRows.length > 0 ? (
+            <Stack $gap={3}>
+              {priorityRows.map((row, i) => {
+                const oldP = estimateOldMonthly(row) ?? row.monthly_cost * 0.9
+                return (
+                  <PriorityHikeCard
+                    key={row.id}
+                    row={row}
+                    points={trends[row.id]?.points ?? []}
+                    oldMonthlyEstimate={oldP}
+                    overpaidEstimate={overpaidSinceHike(row)}
+                    index={i}
+                    onCancellationLetter={() => navigate(`/ai-editor/${encodeURIComponent(row.id)}?intent=cancel`)}
+                    onNegotiate={() => navigate(`/ai-editor/${encodeURIComponent(row.id)}?intent=negotiate`)}
+                  />
+                )
+              })}
             </Stack>
+          ) : null}
 
-            {selectedSub ? (
-              <section aria-label="Twelve month cost trend for selected subscription">
-                <h2 className="cds--type-productive-heading-04">Cost trend — {selectedSub.name}</h2>
-                <p className="cds--type-helper-text-01">Select a row in the table above to change the chart.</p>
-                <CostTrendChart
-                  subscriptionName={selectedSub.name}
-                  points={selectedTrend.points}
-                  priceIncreases={selectedTrend.hikes}
-                />
-              </section>
+          <Stack $gap={4}>
+            <ToolbarRow>
+              <div>
+                <Kicker>The lineup</Kicker>
+                <SectionTitle>Every recurring charge.</SectionTitle>
+              </div>
+              <SearchInput
+                type="search"
+                placeholder="Search the suspects…"
+                aria-label="Search subscriptions"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </ToolbarRow>
+            {filtersActive ? (
+              <ClearLink type="button" onClick={clearFilters}>
+                Clear all filters
+              </ClearLink>
             ) : null}
+            <FilterPills items={WELLNESS_PILLS} activeId={wellnessPill} onChange={setWellnessPill} />
+            <CategoryPills
+              items={categoryPillItems.map((c) => ({ id: c.id, label: c.text }))}
+              activeId={categoryFilter}
+              onChange={setCategoryFilter}
+            />
           </Stack>
-        </Column>
-      </Grid>
-    </Content>
+
+          <LayoutGroup>
+            <motion.div className="sl-dash-grid" layout>
+              {gridRows.map((row, index) => (
+                <SubscriptionCard
+                  key={row.id}
+                  row={row}
+                  points={trends[row.id]?.points ?? []}
+                  selected={selectedId === row.id}
+                  index={index}
+                  onSelect={() => {
+                    setSelectedId(row.id)
+                    announce(`${row.name} selected`)
+                  }}
+                  onCancel={() => navigate(`/ai-editor/${encodeURIComponent(row.id)}?intent=cancel`)}
+                  onNegotiate={() => navigate(`/ai-editor/${encodeURIComponent(row.id)}?intent=negotiate`)}
+                />
+              ))}
+            </motion.div>
+          </LayoutGroup>
+
+          {filteredSubscriptions.length === 0 ? (
+            <Card variant="default" style={{ padding: '1.25rem', textAlign: 'center' }}>
+              <p style={{ margin: 0, color: 'var(--sl-muted)', fontWeight: 600 }}>No subscriptions match these filters.</p>
+            </Card>
+          ) : null}
+
+          <FooterTag>🔥 SubLeech — on your side, against the leeches.</FooterTag>
+        </Stack>
+      </div>
+
+      <NeoModal open={Boolean(selectedSub)} title={selectedSub?.name ?? 'Subscription'} onClose={() => setSelectedId('')}>
+        {selectedSub ? (
+          <Stack $gap={5}>
+            <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: 'var(--sl-muted)' }}>
+              {selectedSub.category} · Last billed {selectedSub.last_billed}
+            </p>
+            <CostTrendChart
+              subscriptionName={selectedSub.name}
+              points={selectedTrend.points}
+              priceIncreases={selectedTrend.hikes}
+            />
+            <div className="sl-btn-row">
+              <button
+                type="button"
+                className="sl-btn sl-btn--coral"
+                onClick={() => navigate(`/ai-editor/${encodeURIComponent(selectedSub.id)}?intent=cancel`)}
+              >
+                Cancellation letter
+              </button>
+              <button
+                type="button"
+                className="sl-btn sl-btn--black"
+                onClick={() => navigate(`/ai-editor/${encodeURIComponent(selectedSub.id)}?intent=negotiate`)}
+              >
+                Negotiate
+              </button>
+            </div>
+          </Stack>
+        ) : null}
+      </NeoModal>
+    </>
   )
 }
