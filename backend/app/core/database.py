@@ -11,6 +11,7 @@ engine = create_engine(
     pool_size=5,
     max_overflow=10,
 )
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db() -> Generator[Session, None, None]:
