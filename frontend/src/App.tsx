@@ -11,7 +11,7 @@ import Reports from '@pages/Reports'
 import AIEditor from '@pages/AIEditor'
 
 // Styles
-import '@carbon/react/scss/index.scss'
+import '@carbon/react/index.scss'
 
 // Create React Query client
 const queryClient = new QueryClient({
