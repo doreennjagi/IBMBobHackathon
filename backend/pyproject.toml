@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "subleech-backend"
+version = "1.0.0"
+description = "AI-Powered Subscription Intelligence & Financial Defense System"
+authors = ["Team Doreen"]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.111.0"
+uvicorn = {extras = ["standard"], version = "^0.29.0"}
+pandas = "^2.2.2"
+sqlalchemy = "^2.0.30"
+alembic = "^1.13.1"
+PyJWT = "^2.8.0"
+pydantic-settings = "^2.2.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
