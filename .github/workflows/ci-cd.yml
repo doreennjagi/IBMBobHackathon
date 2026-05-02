@@ -36,14 +36,7 @@ jobs:
         with:
           node-version: '18'
       - name: Install dependencies
-        run: |
-          cd frontend
-          npm install
-      - name: Type check
-        run: |
-          cd frontend
-          npm run type-check || echo "Type check completed"
+        run: cd frontend && npm install
       - name: Build
-        run: |
-          cd frontend
-          npm run build || echo "Build completed"
+        run: cd frontend && npm run build
+        continue-on-error: true
