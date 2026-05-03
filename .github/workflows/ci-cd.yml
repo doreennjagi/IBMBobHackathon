@@ -16,8 +16,7 @@ jobs:
           python-version: '3.12'
       - name: Install dependencies
         run: |
-          cd backend
-          pip install fastapi uvicorn pandas numpy httpx pydantic sqlalchemy alembic psycopg2-binary python-multipart pytest pytest-asyncio PyJWT slowapi pyyaml pydantic-settings
+          pip install --no-cache-dir fastapi uvicorn pandas numpy httpx pydantic sqlalchemy alembic psycopg2-binary python-multipart pytest pytest-asyncio PyJWT slowapi pyyaml pydantic-settings
       - name: Run tests
         run: |
           cd backend
