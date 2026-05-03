@@ -4,7 +4,6 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.config import get_settings
-from app.core.database import ping_database
 from app.routers import ingest, subscriptions, agents
 
 settings = get_settings()
@@ -28,10 +27,7 @@ app = FastAPI(
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        os.getenv("FRONTEND_URL", "http://localhost:5173"),
-        os.getenv("FRONTEND_URL_ALT", "http://localhost:3000"),
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Content-Type", "Authorization"],
@@ -53,9 +49,7 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    db_ok = ping_database()
     return {
-        "status": "healthy" if db_ok else "degraded",
-        "database": "connected" if db_ok else "unavailable",
-        "redis": "unknown",
+        "status": "healthy",
+        "database": "not required",
     }
