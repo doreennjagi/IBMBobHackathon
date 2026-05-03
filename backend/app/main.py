@@ -42,6 +42,15 @@ app.include_router(ingest.router, prefix="/api/v1", tags=["CSV Ingestion"])
 app.include_router(subscriptions.router, prefix="/api/v1", tags=["Subscriptions"])
 app.include_router(agents.router, prefix="/api/v1", tags=["AI Agents"])
 
+@app.get("/")
+async def root():
+    return {
+        "service": "SubLeech API",
+        "status": "operational",
+        "version": "1.0.0",
+        "docs": "/docs",
+    }
+
 @app.get("/health")
 async def health_check():
     db_ok = ping_database()
