@@ -1,0 +1,2 @@
+langchain==0.1.20
+other_dependency==1.0
