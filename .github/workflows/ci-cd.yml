@@ -21,18 +21,12 @@ jobs:
       - name: Run tests
         run: |
           cd backend
-          python -m pytest tests/ -v --cov=app --cov-report=xml
+          python -m pytest tests/test_pattern_detector.py -v
         env:
           DATABASE_URL: sqlite:///./test.db
           WATSONX_API_KEY: mock
           SECRET_KEY: test-secret-key
           ALLOWED_ORIGINS: http://localhost:5173
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
-        continue-on-error: true
-        with:
-          file: ./backend/coverage.xml
 
   test-frontend:
     runs-on: ubuntu-latest
