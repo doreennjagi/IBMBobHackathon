@@ -56,7 +56,7 @@ export function friendlyUploadError(err: unknown): string {
 export async function uploadBankCsv(file: File): Promise<IngestSuccessResponse> {
   const body = new FormData()
   body.append('file', file)
-  const { data } = await api.post<IngestSuccessResponse>('/api/v1/ingest/upload', body, {
+  const { data } = await api.post<IngestSuccessResponse>('/api/v1/subscriptions/ingest', body, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
   return data
