@@ -969,3 +969,14 @@ html[data-sl-theme='dark'] {
   --sl-zombie: #9ca3af;
   --sl-warn: #fbbf24;
 }
+
+/* Fix Take action button text visibility */
+.sl-btn--ghost {
+  color: var(--sl-ink) !important;
+}
+
+html[data-sl-theme='dark'] .sl-btn--ghost {
+  background: var(--sl-surface-2) !important;
+  color: var(--sl-ticker-fg) !important;
+  border-color: var(--sl-line) !important;
+}
