@@ -2,10 +2,8 @@
 builder = "nixpacks"
 
 [deploy]
-<<<<<<< HEAD
 startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
 healthcheckPath = "/health"
-=======
-startCommand = "/bin/sh -c 'uvicorn app.main:app --host 0.0.0.0 --port $PORT'"
-healthcheckPath = "/docs"
->>>>>>> 1ade449fb9b6d66c34e9d79457f47986c9e7fa11
+healthcheckTimeout = 100
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10

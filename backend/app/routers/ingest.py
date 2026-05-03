@@ -2,7 +2,7 @@ import asyncio
 import logging
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from app.services.merchant_fingerprint import MerchantFingerprint
+from app.services.merchant_fingerprint import MerchantFingerprintService
 from app.services.pattern_detector import SubscriptionPatternDetector
 
 router = APIRouter()
@@ -20,7 +20,7 @@ MAX_BYTES = 10 * 1024 * 1024
 
 @router.post("/subscriptions/ingest")
 async def ingest_csv(file: UploadFile = File(...)):
-    if not file.filename.endswith(".csv"):
+    if not file.filename or not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Invalid file type. Upload a CSV.")
     
     try:
@@ -47,8 +47,8 @@ async def ingest_csv(file: UploadFile = File(...)):
     if missing:
         raise HTTPException(status_code=422, detail=f"Missing columns: {missing}")
     
-    fingerprint = MerchantFingerprint()
-    df["merchant_name"] = df["merchant_name"].apply(fingerprint.normalize)
+    fingerprint = MerchantFingerprintService()
+    df["merchant_name"] = df["merchant_name"].apply(lambda x: fingerprint.identify(x).canonical_name)
     
     detector = SubscriptionPatternDetector()
     subscriptions = detector.detect(df)
