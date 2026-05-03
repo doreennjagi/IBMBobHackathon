@@ -943,3 +943,29 @@ html[data-sl-theme='dark'] .sl-skeleton {
   background: linear-gradient(90deg, #2a2622 25%, #36312c 50%, #2a2622 75%);
   background-size: 200% 100%;
 }
+
+/* Missing dashboard tokens */
+:root {
+  --sl-bg-page: var(--sl-bg);
+  --sl-card-bg: var(--sl-card);
+  --sl-stat-purple-start: #7c3aed;
+  --sl-stat-purple-end: #a855f7;
+  --sl-stat-teal-start: #0d9488;
+  --sl-stat-teal-end: #2dd4bf;
+  --sl-stat-gold-start: #d97706;
+  --sl-stat-gold-end: #fbbf24;
+  --sl-hike: var(--sl-coral);
+  --sl-savings: var(--sl-green);
+  --sl-warn: #f59e0b;
+  --sl-zombie: #6b7280;
+  --sl-text: var(--sl-ink);
+  --sl-text-muted: var(--sl-muted);
+  --sl-border: var(--sl-line);
+  --sl-shadow-card: var(--sl-shadow-sm);
+  --sl-shadow-lift: var(--sl-shadow-md);
+}
+
+html[data-sl-theme='dark'] {
+  --sl-zombie: #9ca3af;
+  --sl-warn: #fbbf24;
+}
