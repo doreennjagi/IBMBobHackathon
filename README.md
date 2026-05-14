@@ -378,13 +378,6 @@ See [docs/IBM_BOB_USAGE.md](docs/IBM_BOB_USAGE.md) for the complete Bob workflow
 | **Blessing** | DevOps / QA | OpenShift, CI/CD, testing, demo recording |
 
 ---
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
 ## 🔗 Links
 
 - **GitHub Repository:** [github.com/doreennjagi/IBMBobHackathon](https://github.com/doreennjagi/IBMBobHackathon)
@@ -392,6 +385,30 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **IBM Bob:** [ibm.com/bob](https://ibm.com/bob)
 - **watsonx Orchestrate:** [ibm.com/watsonx](https://www.ibm.com/watsonx)
 
+---
+---
+ 
+## 📄 License & Intellectual Property
+ 
+**Copyright © 2026 Doreen Njagi & Team Doreen. All Rights Reserved.**
+ 
+**Team Members:** Doreen Njagi, Antony, Gloria, Blessing
+ 
+This software and its source code are the **exclusive intellectual property** of Doreen Njagi and Team Doreen.
+ 
+**You may NOT:**
+- Copy, reproduce, or redistribute this software or any part of it
+- Use this software or its concepts for commercial purposes without written permission
+- Modify, adapt, or build upon this work without explicit written consent from the authors
+- Sublicense or sell access to this software
+**You MAY:**
+- View the source code for personal learning purposes only
+This project is **not open source**. Viewing this repository does not grant any rights to use, copy, or distribute the code or its underlying concepts.
+ 
+For licensing, partnership, or commercial use inquiries, contact the author directly via GitHub.
+ 
+> ⚠️ Unauthorized use of this software is a violation of copyright law and will be pursued accordingly.
+ 
 ---
 
 <div align="center">
